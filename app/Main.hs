@@ -1,24 +1,25 @@
-{-# LANGUAGE Arrows            #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
-import           Control.Arrow
-import           Data.Text
-import           Database.PostgreSQL.Simple (connectPostgreSQL)
-import           Opaleye
-import           People.Person
+import           Data.Pool
+import           Database.PostgreSQL.Simple (connectPostgreSQL, close)
+import           Haxl.Core (initEnv, stateSet, stateEmpty, runHaxl)
 
-personByName :: Text -> Query PersonColumn
-personByName name = proc () -> do
-    p <- personQuery -< ()
-    restrict -< (personName p .== pgStrictText name)
-    returnA -< p
+import           Query
 
 main :: IO ()
 main = do
-    conn <- connectPostgreSQL "dbname='people'"
-    ps <- runQuery conn (personByName "Joe Soap")
-    print (ps :: [Person])
-    joeid <- runInsert conn peopleTable Person { personId = Nothing, personName = pgStrictText "Joe Soap" }
-    print joeid
+    pool <- createPool (connectPostgreSQL "dbname='people'")
+                       close
+                       1
+                       5
+                       8
+    let peopleState = initPeopleState pool
+    env <- initEnv (stateSet peopleState stateEmpty) ()
+    r <- runHaxl env $ getPeopleByName "Joe Soap"
+
+    print r
+
+    -- joeid <- runInsert conn peopleTable Person { personId = Nothing, personName = pgStrictText "Joe Soap" }
+    -- print joeid

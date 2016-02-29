@@ -11,19 +11,20 @@ module People.Person
 , PersonColumn
 , peopleTable
 , personQuery
-)
-where
+, personByName
+) where
 
-import Data.Aeson
-import Data.Profunctor.Product.TH (makeAdaptorAndInstance)
-import Data.Text
-import Opaleye
+import           Control.Arrow
+import           Data.Aeson
+import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
+import           Data.Text
+import           Opaleye
 
-import GHC.Generics (Generic)
+import           GHC.Generics               (Generic)
 
 data Person' a b = Person
-  { personId        :: a
-  , personName      :: b
+  { personId   :: a
+  , personName :: b
   } deriving (Eq, Show, Generic)
 
 type Person       = Person' Int Text
@@ -43,3 +44,9 @@ peopleTable =
 
 personQuery :: Query PersonColumn
 personQuery = queryTable peopleTable
+
+personByName :: Text -> Query PersonColumn
+personByName name = proc () -> do
+    p <- personQuery -< ()
+    restrict -< (personName p .== pgStrictText name)
+    returnA -< p
