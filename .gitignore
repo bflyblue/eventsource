@@ -11,6 +11,5 @@ dist
 codex.tags
 tags
 .DS_Store
-TODO
 *.refactored.*
 hscope.out
