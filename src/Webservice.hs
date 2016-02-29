@@ -12,6 +12,7 @@ import           Control.Monad.Trans.Either   (EitherT, left)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Data.Pool
+import           Data.Text
 import           Database.PostgreSQL.Simple   (Connection)
 import           Haxl.Core                    hiding (env)
 import           Network.Wai.Handler.Warp
@@ -48,6 +49,7 @@ appError = lift . left
 
 server :: ServerT API App
 server = getPeople
+    :<|> getPerson
 
 haxl :: Haxl a -> App a
 haxl a= do
@@ -56,3 +58,10 @@ haxl a= do
 
 getPeople :: App [Person]
 getPeople = haxl getAllPeople
+
+getPerson :: Int -> App Person
+getPerson id_ = do
+    mperson <- haxl (getPersonById id_)
+    case mperson of
+        Just person -> return person
+        Nothing     -> appError err404

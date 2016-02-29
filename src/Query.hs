@@ -15,5 +15,8 @@ type Haxl = GenHaxl ()
 getAllPeople :: Haxl [Person]
 getAllPeople = dataFetch GetAllPeople
 
+getPersonById :: Int -> Haxl (Maybe Person)
+getPersonById id_ = dataFetch (GetPerson id_)
+
 getPeopleByName :: Text -> Haxl [Person]
 getPeopleByName name = dataFetch (GetPeopleByName name)

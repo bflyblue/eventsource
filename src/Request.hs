@@ -21,6 +21,7 @@ import           People.Person
 -- All the possible requests we can make of our Store parameterized by the return type.
 data StoreRequest a where
     GetAllPeople        :: StoreRequest [Person]
+    GetPerson           :: Int -> StoreRequest (Maybe Person)
     GetPeopleByName     :: Text -> StoreRequest [Person]
   deriving Typeable
 
@@ -31,7 +32,8 @@ instance Show1 StoreRequest where show1 = show
 -- We have to manually derive Hashable for a GADT unfortunately.
 instance Hashable (StoreRequest a) where
     hashWithSalt s  GetAllPeople          = hashWithSalt s (0::Int)
-    hashWithSalt s (GetPeopleByName name) = hashWithSalt s (1::Int, name)
+    hashWithSalt s (GetPerson id_)        = hashWithSalt s (1::Int, id_)
+    hashWithSalt s (GetPeopleByName name) = hashWithSalt s (2::Int, name)
 
 instance DataSourceName StoreRequest where
     dataSourceName _ = "Store"
@@ -73,4 +75,9 @@ storeFetch (StoreState pool) _flags _user requests = AsyncFetch go
 -- Use Opaleye to perform data fetches from our store.
 fetchRequest :: Connection -> StoreRequest a -> IO a
 fetchRequest conn  GetAllPeople          = runQuery conn personQuery
+fetchRequest conn (GetPerson id_)        = expectOne <$> runQuery conn (personById id_)
 fetchRequest conn (GetPeopleByName name) = runQuery conn (personByName name)
+
+expectOne :: [a] -> Maybe a
+expectOne (x:_) = Just x
+expectOne _ = Nothing

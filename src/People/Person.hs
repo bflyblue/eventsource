@@ -11,6 +11,7 @@ module People.Person
 , PersonColumn
 , peopleTable
 , personQuery
+, personById
 , personByName
 ) where
 
@@ -44,6 +45,12 @@ peopleTable =
 
 personQuery :: Query PersonColumn
 personQuery = queryTable peopleTable
+
+personById :: Int -> Query PersonColumn
+personById id_ = proc () -> do
+    p <- personQuery -< ()
+    restrict -< (personId p .== pgInt4 id_)
+    returnA -< p
 
 personByName :: Text -> Query PersonColumn
 personByName name = proc () -> do
