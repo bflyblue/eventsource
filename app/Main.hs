@@ -4,7 +4,7 @@ module Main where
 
 import           Data.Pool
 import           Database.PostgreSQL.Simple (ConnectInfo(..), defaultConnectInfo, connect, close)
-import           Webservice
+import           Webservice.Server
 
 main :: IO ()
 main = do

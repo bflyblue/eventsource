@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators     #-}
 
-module Webservice where
+module Webservice.Server where
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
@@ -12,16 +12,15 @@ import           Control.Monad.Trans.Either   (EitherT, left)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Data.Pool
-import           Data.Text
 import           Database.PostgreSQL.Simple   (Connection)
 import           Haxl.Core                    hiding (env)
 import           Network.Wai.Handler.Warp
 import           Servant
 
-import           Api                          (API)
+import           Datastore.Query
+import           Datastore.Request
 import           People.Person                (Person, Person' (..))
-import           Query
-import           Request
+import           Webservice.Api               (API)
 
 type App = ReaderT AppState (EitherT ServantErr IO)
 

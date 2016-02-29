@@ -1,11 +1,10 @@
 {-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE TypeOperators   #-}
 
-module Api
+module Webservice.Api
 ( API
 ) where
 
-import Data.Text
 import Servant
 import People.Person (Person)
 

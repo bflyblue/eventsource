@@ -15,11 +15,11 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Api
-                       Query
-                       Request
-                       Webservice
+  exposed-modules:     Datastore.Query
+                       Datastore.Request
                        People.Person
+                       Webservice.Api
+                       Webservice.Server
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , async

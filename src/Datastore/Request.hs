@@ -5,7 +5,7 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeFamilies          #-}
 
-module Request where
+module Datastore.Request where
 
 import           Control.Concurrent.Async
 import           Data.Hashable

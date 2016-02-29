@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings     #-}
 
-module Query where
+module Datastore.Query where
 
 import           Data.Text
 import           Haxl.Core
 import           People.Person
-import           Request
+import           Datastore.Request
 
 -- Haxl data store queries
 -- This are the basic requests you should use to build up complex queries.
