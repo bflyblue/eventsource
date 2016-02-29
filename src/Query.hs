@@ -18,34 +18,34 @@ import           Opaleye
 
 import           People.Person
 
-data PeopleRequest a where
-    GetPeopleByName     :: Text -> PeopleRequest [Person]
+data StoreRequest a where
+    GetPeopleByName     :: Text -> StoreRequest [Person]
   deriving Typeable
 
-deriving instance Show (PeopleRequest a)
-deriving instance Eq (PeopleRequest a)
-instance Show1 PeopleRequest where show1 = show
+deriving instance Show (StoreRequest a)
+deriving instance Eq (StoreRequest a)
+instance Show1 StoreRequest where show1 = show
 
-instance Hashable (PeopleRequest a) where
+instance Hashable (StoreRequest a) where
     hashWithSalt s (GetPeopleByName name) = hashWithSalt s (0::Int, name)
 
-instance DataSourceName PeopleRequest where
-    dataSourceName _ = "People Store"
+instance DataSourceName StoreRequest where
+    dataSourceName _ = "Store"
 
-instance StateKey PeopleRequest where
-    data State PeopleRequest =
-        PeopleState
+instance StateKey StoreRequest where
+    data State StoreRequest =
+        StoreState
           { dbpool    :: Pool Connection
           }
 
-initPeopleState :: Pool Connection -> State PeopleRequest
-initPeopleState pool = PeopleState { dbpool = pool }
+initStoreState :: Pool Connection -> State StoreRequest
+initStoreState pool = StoreState { dbpool = pool }
 
-instance DataSource u PeopleRequest where
+instance DataSource u StoreRequest where
     fetch = peopleFetch
 
-peopleFetch :: State PeopleRequest -> Flags -> u -> [BlockedFetch PeopleRequest] -> PerformFetch
-peopleFetch (PeopleState pool) _flags _user requests = AsyncFetch go
+peopleFetch :: State StoreRequest -> Flags -> u -> [BlockedFetch StoreRequest] -> PerformFetch
+peopleFetch (StoreState pool) _flags _user requests = AsyncFetch go
   where
     go inner = do
         asyncs <- mapM fetchAsync requests
@@ -56,7 +56,7 @@ peopleFetch (PeopleState pool) _flags _user requests = AsyncFetch go
         a <- withResource pool $ \conn -> fetchRequest conn req
         putSuccess rvar a
 
-fetchRequest :: Connection -> PeopleRequest a -> IO a
+fetchRequest :: Connection -> StoreRequest a -> IO a
 fetchRequest conn (GetPeopleByName name) = runQuery conn (personByName name)
 
 type Haxl = GenHaxl ()
