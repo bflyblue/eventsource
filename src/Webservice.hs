@@ -11,7 +11,9 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Either   (EitherT, left)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
-import           Haxl.Core
+import           Data.Pool
+import           Database.PostgreSQL.Simple   (Connection)
+import           Haxl.Core                    hiding (env)
 import           Network.Wai.Handler.Warp
 import           Servant
 
@@ -28,13 +30,17 @@ data AppState = AppState
 
 data AppMetrics = AppMetrics
 
-serveForever :: Env () -> Port -> Maybe AppMetrics -> IO ()
-serveForever env port metrics = do
-    let state = AppState env metrics
-    runResourceT $ runNoLoggingT $ liftIO $ run port (app state)
+serveForever :: Pool Connection -> Port -> Maybe AppMetrics -> IO ()
+serveForever pool port metrics =
+    runResourceT $ runNoLoggingT $ liftIO $ run port app
   where
     serverWithState s = enter (runReaderTNat s) server
-    app = serve (Proxy :: Proxy API) . serverWithState
+    app req respond = do
+        -- Create a fresh Haxl environment to handle our requests with a blank cache.
+        let storeState = initStoreState pool
+        env <- initEnv (stateSet storeState stateEmpty) ()
+        let state = AppState env metrics
+        serve (Proxy :: Proxy API) (serverWithState state) req respond
 
 appError :: ServantErr -> App a
 appError = lift . left

@@ -4,9 +4,6 @@ module Main where
 
 import           Data.Pool
 import           Database.PostgreSQL.Simple (ConnectInfo(..), defaultConnectInfo, connect, close)
-import           Haxl.Core (initEnv, stateSet, stateEmpty)
-
-import           Query
 import           Webservice
 
 main :: IO ()
@@ -33,13 +30,7 @@ main = do
                        5    -- amount of time to keep idle connection open
                        8    -- maximum connections per stripe
 
-    -- Create a Haxl environment to handle our data store requests
-    -- TODO: move this down, creating an env creates an empty cache
-    --       so we're caching too aggressively right now
-    let storeState = initStoreState pool
-    env <- initEnv (stateSet storeState stateEmpty) ()
-
-    serveForever env 8000 Nothing
+    serveForever pool 8000 Nothing
 
     -- Example request
     -- r <- runHaxl env $ getPeopleByName "Joe Soap"
