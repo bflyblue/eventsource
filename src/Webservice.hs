@@ -20,6 +20,7 @@ import           Servant
 import           Api                          (API)
 import           People.Person                (Person, Person' (..))
 import           Query
+import           Request
 
 type App = ReaderT AppState (EitherT ServantErr IO)
 
