@@ -19,18 +19,21 @@ import           Servant
 
 import           Datastore.Query
 import           Datastore.Request
-import           People.Person                (Person, Person' (..))
+import           People.Person                (Person)
 import           Webservice.Api               (API)
 
-type App = ReaderT AppState (EitherT ServantErr IO)
+-- Our custom App type
+-- We use ReaderT to hold some useful data
+type App = ReaderT AppEnv (EitherT ServantErr IO)
 
-data AppState = AppState
-  { appEnv     :: Env ()
+data AppEnv = AppEnv
+  { appHaxlEnv :: Env ()
   , appMetrics :: Maybe AppMetrics
   }
 
 data AppMetrics = AppMetrics
 
+-- Serve our API forever on a TCP port
 serveForever :: Pool Connection -> Port -> Maybe AppMetrics -> IO ()
 serveForever pool port metrics =
     runResourceT $ runNoLoggingT $ liftIO $ run port app
@@ -40,20 +43,24 @@ serveForever pool port metrics =
         -- Create a fresh Haxl environment to handle our requests with a blank cache.
         let storeState = initStoreState pool
         env <- initEnv (stateSet storeState stateEmpty) ()
-        let state = AppState env metrics
+        let state = AppEnv env metrics
         serve (Proxy :: Proxy API) (serverWithState state) req respond
 
+-- Run a Haxl query
+haxl :: Haxl a -> App a
+haxl a = do
+    env <- asks appHaxlEnv
+    liftIO $ runHaxl env a
+
+-- Lift servant errors into our App type
 appError :: ServantErr -> App a
 appError = lift . left
 
+-- Server definition conforms to the API
+-- This is where we associate functions to endpoints in our api
 server :: ServerT API App
 server = getPeople
     :<|> getPerson
-
-haxl :: Haxl a -> App a
-haxl a = do
-    env <- asks appEnv
-    liftIO $ runHaxl env a
 
 getPeople :: App [Person]
 getPeople = haxl getAllPeople
