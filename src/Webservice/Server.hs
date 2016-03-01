@@ -57,7 +57,7 @@ appError :: ServantErr -> App a
 appError = lift . left
 
 -- Server definition conforms to the API
--- This is where we associate functions to endpoints in our api
+-- This is where we associate functions with endpoints in our api
 server :: ServerT API App
 server = getPeople
     :<|> getPerson
