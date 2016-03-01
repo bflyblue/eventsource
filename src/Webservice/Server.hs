@@ -51,7 +51,7 @@ server = getPeople
     :<|> getPerson
 
 haxl :: Haxl a -> App a
-haxl a= do
+haxl a = do
     env <- asks appEnv
     liftIO $ runHaxl env a
 
