@@ -47,11 +47,15 @@ instance Aggregate (Versioned Person) where
     data AggregateEvent (Versioned Person)
       = InitialisePerson Int Text
       | UpdatePersonName Text
+      deriving (Show, Eq, Ord, Generic)
 
     empty = Initial
 
     apply (InitialisePerson id_ name)               = vset    Person { personId = id_, personName = name }
     apply (UpdatePersonName name    )               = vadjust (\p -> p { personName = name })
+
+instance FromJSON (AggregateEvent (Versioned Person))
+instance ToJSON   (AggregateEvent (Versioned Person))
 
 peopleTable :: Table (Person' (Maybe (Column PGInt4)) (Column PGText)) PersonColumn
 peopleTable =

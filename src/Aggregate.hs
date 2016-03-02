@@ -2,8 +2,6 @@
 
 module Aggregate where
 
-import           Data.List   (foldl')
-
 data Versioned a = Initial | Version Int a | Invalid Int | Deleted Int
     deriving (Show, Eq, Ord)
 
@@ -28,12 +26,6 @@ class Aggregate a where
 
     empty :: a
     apply :: AggregateEvent a -> a -> a
-
-    rehydrate :: [AggregateEvent a] ->  a
-    rehydrate = foldl' (@>) empty
-
-(@>) :: Aggregate a => a -> AggregateEvent a -> a
-(@>) = flip apply
 
 data Tracked a = Tracked { currentState :: a, changes :: [AggregateEvent a] }
 

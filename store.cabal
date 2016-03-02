@@ -38,6 +38,7 @@ library
                      , servant
                      , servant-server
                      , text
+                     , time
                      , transformers
                      , wai
                      , warp
