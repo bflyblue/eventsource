@@ -11,14 +11,17 @@ module People.Person
 , PersonColumn
 , peopleTable
 , personQuery
-, personById
-, personByName
+, people
+, PersonFilter(..)
+, StrCmp(..)
 ) where
 
 import           Control.Arrow
+import qualified Control.Category           as Cat
 import           Data.Aeson
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
-import           Data.Text
+import           Data.String
+import           Data.Text                  (Text)
 import           Opaleye
 
 import           GHC.Generics               (Generic)
@@ -26,7 +29,7 @@ import           GHC.Generics               (Generic)
 data Person' a b = Person
   { personId   :: a
   , personName :: b
-  } deriving (Eq, Show, Generic)
+  } deriving (Show, Eq, Generic)
 
 type Person       = Person' Int Text
 type PersonColumn = Person' (Column PGInt4) (Column PGText)
@@ -46,14 +49,28 @@ peopleTable =
 personQuery :: Query PersonColumn
 personQuery = queryTable peopleTable
 
-personById :: Int -> Query PersonColumn
-personById id_ = proc () -> do
-    p <- personQuery -< ()
-    restrict -< (personId p .== pgInt4 id_)
-    returnA -< p
+data StrCmp = StrEq Text
+    deriving (Show, Eq)
 
-personByName :: Text -> Query PersonColumn
-personByName name = proc () -> do
+instance IsString StrCmp where
+    fromString = StrEq . fromString
+
+data PersonFilter = PersonId   Int
+                  | PersonName StrCmp
+
+restrictPerson :: PersonFilter -> QueryArr PersonColumn ()
+restrictPerson (PersonId   id_         ) = proc p -> restrict -< (personId p   .== pgInt4 id_)
+restrictPerson (PersonName (StrEq name)) = proc p -> restrict -< (personName p .== pgStrictText name)
+
+-- TODO: I don't really grok Arrows yet so I'm sure there must be a cleaner way to do this...
+filterPerson :: [PersonFilter] -> QueryArr PersonColumn ()
+filterPerson [] = proc p -> returnA -< ()
+filterPerson (f:fs) = proc p -> do
+    restrictPerson f -< p
+    filterPerson fs -< p
+
+people :: [PersonFilter] -> Query PersonColumn
+people fs = proc () -> do
     p <- personQuery -< ()
-    restrict -< (personName p .== pgStrictText name)
+    filterPerson fs -< p
     returnA -< p

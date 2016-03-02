@@ -75,8 +75,8 @@ storeFetch (StoreState pool) _flags _user requests = AsyncFetch go
 -- Use Opaleye to perform data fetches from our store.
 fetchRequest :: Connection -> StoreRequest a -> IO a
 fetchRequest conn  GetAllPeople          = runQuery conn personQuery
-fetchRequest conn (GetPerson id_)        = expectOne <$> runQuery conn (personById id_)
-fetchRequest conn (GetPeopleByName name) = runQuery conn (personByName name)
+fetchRequest conn (GetPerson id_)        = expectOne <$> runQuery conn (people [PersonId id_])
+fetchRequest conn (GetPeopleByName name) =               runQuery conn (people [PersonName (StrEq name)])
 
 expectOne :: [a] -> Maybe a
 expectOne (x:_) = Just x
