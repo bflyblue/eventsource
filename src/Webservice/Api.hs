@@ -6,7 +6,7 @@ module Webservice.Api
 ) where
 
 import Servant
-import People.Person (Person)
+import Person.Person (Person)
 
 type API = "people" :> Get '[JSON] [Person]
       :<|> "person" :> Capture "id" Int :> Get '[JSON] Person

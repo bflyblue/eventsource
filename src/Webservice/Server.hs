@@ -19,7 +19,7 @@ import           Servant
 
 import           Datastore.Query
 import           Datastore.Request
-import           People.Person                (Person)
+import           Person.Person                (Person)
 import           Webservice.Api               (API)
 
 -- Our custom App type

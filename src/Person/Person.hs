@@ -6,7 +6,7 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
-module People.Person
+module Person.Person
 ( Person'(..)
 , Person
 , PersonColumn

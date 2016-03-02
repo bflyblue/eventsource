@@ -4,7 +4,7 @@ module Datastore.Query where
 
 import           Data.Text
 import           Haxl.Core
-import           People.Person
+import           Person.Person
 import           Datastore.Request
 
 -- Haxl data store queries

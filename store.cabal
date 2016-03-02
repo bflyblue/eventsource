@@ -17,7 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Datastore.Query
                        Datastore.Request
-                       People.Person
+                       Person.Person
                        Webservice.Api
                        Webservice.Server
   build-depends:       base >= 4.7 && < 5

@@ -15,7 +15,7 @@ import           Database.PostgreSQL.Simple
 import           Haxl.Core
 import           Opaleye
 
-import           People.Person
+import           Person.Person
 
 -- All the possible requests we can make of our Store parameterized by the return type.
 data StoreRequest a where
