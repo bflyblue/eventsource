@@ -3,7 +3,9 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
 module Person.Person
@@ -23,13 +25,14 @@ import           Data.Hashable
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
 import           Data.String
 import           Data.Text                  (Text)
+import           GHC.Generics               (Generic)
 import           Opaleye
 
-import           GHC.Generics               (Generic)
+import           Aggregate
 
 data Person' a b = Person
-  { personId   :: a
-  , personName :: b
+  { personId      :: a
+  , personName    :: b
   } deriving (Show, Eq, Generic)
 
 type Person       = Person' Int Text
@@ -40,11 +43,21 @@ instance ToJSON Person
 
 $(makeAdaptorAndInstance "pPerson" ''Person')
 
+instance Aggregate (Versioned Person) where
+    data AggregateEvent (Versioned Person)
+      = InitialisePerson Int Text
+      | UpdatePersonName Text
+
+    empty = Initial
+
+    apply (InitialisePerson id_ name)               = vset    Person { personId = id_, personName = name }
+    apply (UpdatePersonName name    )               = vadjust (\p -> p { personName = name })
+
 peopleTable :: Table (Person' (Maybe (Column PGInt4)) (Column PGText)) PersonColumn
 peopleTable =
     Table "people"
-        (pPerson Person { personId   = optional "id"
-                        , personName = required "name"
+        (pPerson Person { personId      = optional "id"
+                        , personName    = required "name"
                         })
 
 personQuery :: Query PersonColumn
