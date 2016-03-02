@@ -50,16 +50,19 @@ peopleTable =
 personQuery :: Query PersonColumn
 personQuery = queryTable peopleTable
 
+-- TODO: This should move to it's own module
 data StrCmp = StrEq Text
     deriving (Show, Eq, Generic, Hashable)
 
 instance IsString StrCmp where
     fromString = StrEq . fromString
 
+-- Different ways of restricting a people query
 data PersonFilter = PersonId   Int
                   | PersonName StrCmp
     deriving (Show, Eq, Generic, Hashable)
 
+-- Restrict query based on filters
 restrictPerson :: PersonFilter -> QueryArr PersonColumn ()
 restrictPerson (PersonId   id_         ) = proc p -> restrict -< (personId p   .== pgInt4 id_)
 restrictPerson (PersonName (StrEq name)) = proc p -> restrict -< (personName p .== pgStrictText name)
