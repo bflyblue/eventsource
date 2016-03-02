@@ -1,4 +1,5 @@
 {-# LANGUAGE Arrows                #-}
+{-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -17,8 +18,8 @@ module People.Person
 ) where
 
 import           Control.Arrow
-import qualified Control.Category           as Cat
 import           Data.Aeson
+import           Data.Hashable
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
 import           Data.String
 import           Data.Text                  (Text)
@@ -50,13 +51,14 @@ personQuery :: Query PersonColumn
 personQuery = queryTable peopleTable
 
 data StrCmp = StrEq Text
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic, Hashable)
 
 instance IsString StrCmp where
     fromString = StrEq . fromString
 
 data PersonFilter = PersonId   Int
                   | PersonName StrCmp
+    deriving (Show, Eq, Generic, Hashable)
 
 restrictPerson :: PersonFilter -> QueryArr PersonColumn ()
 restrictPerson (PersonId   id_         ) = proc p -> restrict -< (personId p   .== pgInt4 id_)
@@ -64,7 +66,7 @@ restrictPerson (PersonName (StrEq name)) = proc p -> restrict -< (personName p .
 
 -- TODO: I don't really grok Arrows yet so I'm sure there must be a cleaner way to do this...
 filterPerson :: [PersonFilter] -> QueryArr PersonColumn ()
-filterPerson [] = proc p -> returnA -< ()
+filterPerson [] = proc _ -> returnA -< ()
 filterPerson (f:fs) = proc p -> do
     restrictPerson f -< p
     filterPerson fs -< p

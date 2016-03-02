@@ -10,7 +10,6 @@ module Datastore.Request where
 import           Control.Concurrent.Async
 import           Data.Hashable
 import           Data.Pool
-import           Data.Text
 import           Data.Typeable
 import           Database.PostgreSQL.Simple
 import           Haxl.Core
@@ -20,9 +19,7 @@ import           People.Person
 
 -- All the possible requests we can make of our Store parameterized by the return type.
 data StoreRequest a where
-    GetAllPeople        :: StoreRequest [Person]
-    GetPerson           :: Int -> StoreRequest (Maybe Person)
-    GetPeopleByName     :: Text -> StoreRequest [Person]
+    GetPeople           :: [PersonFilter] -> StoreRequest [Person]
   deriving Typeable
 
 deriving instance Show (StoreRequest a)
@@ -31,9 +28,7 @@ instance Show1 StoreRequest where show1 = show
 
 -- We have to manually derive Hashable for a GADT unfortunately.
 instance Hashable (StoreRequest a) where
-    hashWithSalt s  GetAllPeople          = hashWithSalt s (0::Int)
-    hashWithSalt s (GetPerson id_)        = hashWithSalt s (1::Int, id_)
-    hashWithSalt s (GetPeopleByName name) = hashWithSalt s (2::Int, name)
+    hashWithSalt s (GetPeople fs) = hashWithSalt s (0::Int, fs)
 
 instance DataSourceName StoreRequest where
     dataSourceName _ = "Store"
@@ -74,10 +69,4 @@ storeFetch (StoreState pool) _flags _user requests = AsyncFetch go
 -- Request handler.
 -- Use Opaleye to perform data fetches from our store.
 fetchRequest :: Connection -> StoreRequest a -> IO a
-fetchRequest conn  GetAllPeople          = runQuery conn personQuery
-fetchRequest conn (GetPerson id_)        = expectOne <$> runQuery conn (people [PersonId id_])
-fetchRequest conn (GetPeopleByName name) =               runQuery conn (people [PersonName (StrEq name)])
-
-expectOne :: [a] -> Maybe a
-expectOne (x:_) = Just x
-expectOne _ = Nothing
+fetchRequest conn (GetPeople fs) = runQuery conn $ people fs

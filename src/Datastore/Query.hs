@@ -13,10 +13,14 @@ import           Datastore.Request
 type Haxl = GenHaxl ()
 
 getAllPeople :: Haxl [Person]
-getAllPeople = dataFetch GetAllPeople
+getAllPeople = dataFetch (GetPeople [])
 
 getPersonById :: Int -> Haxl (Maybe Person)
-getPersonById id_ = dataFetch (GetPerson id_)
+getPersonById id_ = expectOne <$> dataFetch (GetPeople [PersonId id_])
 
 getPeopleByName :: Text -> Haxl [Person]
-getPeopleByName name = dataFetch (GetPeopleByName name)
+getPeopleByName name = dataFetch (GetPeople [PersonName (StrEq name)])
+
+expectOne :: [a] -> Maybe a
+expectOne (x:_) = Just x
+expectOne _ = Nothing
