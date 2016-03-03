@@ -28,7 +28,8 @@ import           Data.Text                  (Text)
 import           GHC.Generics               (Generic)
 import           Opaleye
 
-import           Aggregate
+import           EventSourcing
+import           Version
 
 data Person' a b = Person
   { personId      :: a
@@ -44,18 +45,20 @@ instance ToJSON Person
 $(makeAdaptorAndInstance "pPerson" ''Person')
 
 instance Aggregate (Versioned Person) where
-    data AggregateEvent (Versioned Person)
+    data EventT (Versioned Person)
       = InitialisePerson Int Text
       | UpdatePersonName Text
       deriving (Show, Eq, Ord, Generic)
+
+    version = Version.version
 
     empty = Initial
 
     apply (InitialisePerson id_ name)               = vset    Person { personId = id_, personName = name }
     apply (UpdatePersonName name    )               = vadjust (\p -> p { personName = name })
 
-instance FromJSON (AggregateEvent (Versioned Person))
-instance ToJSON   (AggregateEvent (Versioned Person))
+instance FromJSON (EventT (Versioned Person))
+instance ToJSON   (EventT (Versioned Person))
 
 peopleTable :: Table (Person' (Maybe (Column PGInt4)) (Column PGText)) PersonColumn
 peopleTable =

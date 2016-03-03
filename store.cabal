@@ -15,7 +15,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Aggregate
+  exposed-modules:     EventSourcing
+                       Version
                        Datastore.Query
                        Datastore.Request
                        Person.Person

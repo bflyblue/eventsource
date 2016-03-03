@@ -1,33 +1,34 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Aggregate where
 
-data Versioned a = Initial | Version Int a | Invalid Int | Deleted Int
-    deriving (Show, Eq, Ord)
+import Data.List (foldl')
 
-version :: Versioned a -> Int
-version Initial       = 0
-version (Version v _) = v
-version (Invalid v)   = v
-version (Deleted v)   = v
-
-vadjust :: (a -> a) -> Versioned a -> Versioned a
-vadjust f (Version v a) = Version (succ v) (f a)
-vadjust _ u             = Invalid (succ (version u))
-
-vset :: a -> Versioned a -> Versioned a
-vset a Initial       = Version 0        a
-vset a (Version v _) = Version (succ v) a
-vset a (Deleted v)   = Version (succ v) a   -- TODO: does this make sense?
-vset a (Invalid v)   = Version (succ v) a   -- TODO: does this make sense?
+type Version = Int
 
 class Aggregate a where
-    data AggregateEvent a
+    data EventT a
 
-    empty :: a
-    apply :: AggregateEvent a -> a -> a
+    empty   :: a
+    apply   :: EventT a -> a -> a
+    version :: a -> Version
 
-data Tracked a = Tracked { currentState :: a, changes :: [AggregateEvent a] }
+data Tracked a = Tracked { currentState   :: a
+                         , initialState   :: a
+                         , trackedChanges :: [EventT a]
+                         }
 
--- track :: Aggregate a => AggregateEvent a -> Tracked a -> Tracked a
--- track e (Tracked a es) = Tracked (apply e a) (es <> [e])
+class EventStream a where
+    type AggregateT a
+
+    fetchEvents :: a -> Version -> Version -> IO [(Version, EventT (AggregateT a))]
+
+rehydrateVersion :: (EventStream s, Aggregate (AggregateT s)) => Version -> s -> IO (Tracked (AggregateT s))
+rehydrateVersion ver s = do
+    events <- fetchEvents s 0 ver
+    let a = foldl' (flip apply) empty (snd <$> events)
+    return $ Tracked a empty (snd <$> events)
+
+rehydrate :: (EventStream s, Aggregate (AggregateT s)) => s -> IO (Tracked (AggregateT s))
+rehydrate = rehydrateVersion maxBound
