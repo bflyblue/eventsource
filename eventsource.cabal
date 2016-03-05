@@ -1,8 +1,8 @@
-name:                store
+name:                eventsource
 version:             0.1.0.0
-synopsis:            Mpowered Store API
+synopsis:
 description:         Please see README.md
-homepage:            http://github.com/mpowered/store#readme
+homepage:
 license:             AllRightsReserved
 license-file:        LICENSE
 author:              Shaun Sharples
@@ -15,13 +15,13 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     EventSourcing
-                       Version
-                       Datastore.Query
-                       Datastore.Request
-                       Person.Person
-                       Webservice.Api
-                       Webservice.Server
+  exposed-modules:
+                       Datastore.Event
+                       Datastore.EventStream
+                       Datastore.Store
+                       EventSource.Aggregate
+                       EventSource.EventStream
+                       EventSource.Store
   ghc-options:         -Wall
   build-depends:       base >= 4.7 && < 5
                      , aeson
@@ -45,7 +45,7 @@ library
                      , warp
   default-language:    Haskell2010
 
-executable store-exe
+executable eventsource-exe
   hs-source-dirs:      app
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
@@ -54,19 +54,19 @@ executable store-exe
                      , opaleye
                      , postgresql-simple
                      , resource-pool
-                     , store
+                     , eventsource
                      , text
   default-language:    Haskell2010
 
-test-suite store-test
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             Spec.hs
-  build-depends:       base
-                     , store
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
-  default-language:    Haskell2010
+-- test-suite store-test
+--   type:                exitcode-stdio-1.0
+--   hs-source-dirs:      test
+--   main-is:             Spec.hs
+--   build-depends:       base
+--                      , store
+--   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
+--   default-language:    Haskell2010
 
-source-repository head
-  type:     git
-  location: https://github.com/mpowered/store
+-- source-repository head
+--   type:     git
+--   location: https://github.com/mpowered/store

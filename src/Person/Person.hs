@@ -8,6 +8,9 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
+module Person.Person where
+
+{-
 module Person.Person
 ( Person'(..)
 , Person
@@ -99,3 +102,4 @@ people fs = proc () -> do
     p <- personQuery -< ()
     filterPerson fs -< p
     returnA -< p
+-}

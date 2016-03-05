@@ -2,41 +2,24 @@
 
 module Main where
 
-import           Data.Pool
-import           Database.PostgreSQL.Simple (ConnectInfo(..), defaultConnectInfo, connect, close)
-import           Webservice.Server
+import Database.PostgreSQL.Simple
+import Datastore.Store
+import Datastore.Event
+import Datastore.EventStream
 
 main :: IO ()
 main = do
-    -- TODO: Get connection and pool settings from the environment or as
-    --       command-line arguments.
-
-    -- Data store connection information.
-    -- This is the PostgreSQL database we're using as a data store.
-    -- example:  { connectDatabase = "store"
-    --           , connectHost     = "localhost"
-    --           , connectPort     = 5432
-    --           , connectUser     = "postgres"
-    --           , connectPassword = "password"
-    --           }
-    let conninfo = defaultConnectInfo { connectDatabase = "people"
+    let conninfo = defaultConnectInfo { connectDatabase = "store"
                                       , connectHost     = "neptune"
                                       , connectUser     = "shaun"
                                       , connectPassword = "icecream" }
 
-    -- Use a connection pool rather than opening a new connection for every request.
-    pool <- createPool (connect conninfo) close
-                       1    -- stripes
-                       5    -- amount of time to keep idle connection open
-                       8    -- maximum connections per stripe
+    conn <- connect conninfo
 
-    serveForever pool 8000 Nothing
+    r <- runStore conn $ do
+        a  <- newEventStream "typeA"
+        e1 <- newEvent a ([1,2,3] :: [Int])
+        e2 <- newEvent a ([4,5,6] :: [Int])
+        return (a, e1, e2)
 
-    -- Example request
-    -- r <- runHaxl env $ getPeopleByName "Joe Soap"
-    -- print r
-
-    -- joeid <- runInsert conn peopleTable Person { personId = Nothing, personName = pgStrictText "Joe Soap" }
-    -- print joeid
-
-    destroyAllResources pool
+    print r
