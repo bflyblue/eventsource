@@ -19,6 +19,7 @@ library
                        Datastore.Event
                        Datastore.EventStream
                        Datastore.Store
+                       Datastore.Types
                        EventSource.Aggregate
                        EventSource.EventStream
                        EventSource.Store
