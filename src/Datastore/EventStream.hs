@@ -80,12 +80,12 @@ updateEventStreamTag (EventStreamId stream_id) old new = do
                                                   .&& streamTag e .== pgInt4 old)
     return $ n == 1
   where
-    setTag EventStream{..} = EventStream { streamId   = Nothing
+    setTag EventStream{..} = EventStream { streamId   = Just streamId
                                          , streamType = streamType
                                          , streamTag  = pgInt4 new }
 
 -- TODO: check updateEventSteamTag is sufficient for concurrency concerns
-addEvents :: EventStreamId -> Int -> [Event] -> Store Bool
+addEvents :: ToJSON a => EventStreamId -> Int -> [a] -> Store Bool
 addEvents stream_id tag events = do
     updated <- updateEventStreamTag stream_id tag (tag + length events)
     when updated $
@@ -93,8 +93,8 @@ addEvents stream_id tag events = do
     return updated
 
 -- TODO: try make this a single database query
-fetchEvents :: EventStreamId -> Store (Int, [Event])
+fetchEvents :: FromJSON a => EventStreamId -> Store (Int, [a])
 fetchEvents stream_id = do
     s <- getEventStream stream_id
-    events <- getEventsForStream stream_id
+    events <- parseEventsForStream stream_id
     return (streamTag s, events)

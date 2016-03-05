@@ -80,3 +80,11 @@ getEventsForStream (EventStreamId steam_id) =
             e <- eventQuery -< ()
             restrict -< eventStreamId e .== pgInt4 steam_id
             returnA -< e
+
+parseEventsForStream :: FromJSON a => EventStreamId -> Store [a]
+parseEventsForStream stream_id = do
+    events <- getEventsForStream stream_id
+    let vals = eventPayload <$> events
+    case mapM fromJSON vals of
+        Success as -> return as
+        Error msg  -> storeErr (StoreParseError msg)

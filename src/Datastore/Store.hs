@@ -10,6 +10,7 @@ import EventSource.Store
 data StoreEnv = StoreEnv { pgconn :: Connection }
 data StoreErr = StoreInternalError String
               | StoreNotFound      String
+              | StoreParseError    String
               | StoreTagMismatch
               deriving (Show, Eq, Ord)
 
