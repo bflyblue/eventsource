@@ -12,21 +12,23 @@
 
 module Datastore.EventStream where
 
+import           Datastore.Event
 import           Datastore.Store
+import           Datastore.Types
 import           EventSource.Store          (storeErr)
 
+import           Control.Arrow
+import           Control.Monad
 import           Data.Aeson
 import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
 import           Data.Text                  (Text)
 import           GHC.Generics               (Generic)
 import           Opaleye
 
-newtype EventStreamId = EventStreamId Int deriving (Show, Eq)
-
 data EventStream' a b c = EventStream
-  { eventStreamId   :: a
-  , eventStreamType :: b
-  , eventStreamTag  :: c
+  { streamId   :: a
+  , streamType :: b
+  , streamTag  :: c
   } deriving (Show, Eq, Generic)
 
 type EventStream = EventStream' Int Text Int
@@ -43,9 +45,9 @@ eventStreamTable :: Table (EventStream' (Maybe (Column PGInt4))
                           EventStreamColumn
 eventStreamTable =
     Table "event_streams"
-        (pEventStream EventStream { eventStreamId   = optional "id"
-                                  , eventStreamType = required "type"
-                                  , eventStreamTag  = required "tag"
+        (pEventStream EventStream { streamId   = optional "id"
+                                  , streamType = required "type"
+                                  , streamTag  = required "tag"
                                   })
 
 eventStreamQuery :: Query EventStreamColumn
@@ -55,21 +57,44 @@ newEventStream :: Text -> Store EventStreamId
 newEventStream t = do
     let es = EventStream Nothing (pgStrictText t) (pgInt4 0)
     rs <- withPgConn $ \conn ->
-        runInsertReturning conn eventStreamTable es eventStreamId
+        runInsertReturning conn eventStreamTable es streamId
     case rs of
         [stream_id] -> return $ EventStreamId stream_id
         _           -> storeErr $ StoreInternalError "INSERT RETURNING did not return valid event stream id"
 
+getEventStream :: EventStreamId -> Store EventStream
+getEventStream (EventStreamId stream_id) = do
+    streams <- withPgConn $ \conn ->
+        runQuery conn $ proc () -> do
+            s <- eventStreamQuery -< ()
+            restrict -< streamId s .== pgInt4 stream_id
+            returnA -< s
+    case streams of
+        [stream] -> return stream
+        _        -> storeErr $ StoreNotFound $ "Zero or more than 1 event streams returned for id " ++ show stream_id
+
 updateEventStreamTag :: EventStreamId -> Int -> Int -> Store Bool
 updateEventStreamTag (EventStreamId stream_id) old new = do
     n <- withPgConn $ \conn ->
-        runUpdate conn eventStreamTable setTag (\e -> eventStreamId  e .== pgInt4 stream_id
-                                                  .&& eventStreamTag e .== pgInt4 old)
+        runUpdate conn eventStreamTable setTag (\e -> streamId  e .== pgInt4 stream_id
+                                                  .&& streamTag e .== pgInt4 old)
     return $ n == 1
   where
-    setTag EventStream{..} = EventStream { eventStreamId   = Nothing
-                                         , eventStreamType = eventStreamType
-                                         , eventStreamTag  = pgInt4 new }
+    setTag EventStream{..} = EventStream { streamId   = Nothing
+                                         , streamType = streamType
+                                         , streamTag  = pgInt4 new }
 
--- fetchEvents :: FromJSON a => EventStreamId -> Store [a]
--- fetchEvents = undefined
+-- TODO: check updateEventSteamTag is sufficient for concurrency concerns
+addEvents :: EventStreamId -> Int -> [Event] -> Store Bool
+addEvents stream_id tag events = do
+    updated <- updateEventStreamTag stream_id tag (tag + length events)
+    when updated $
+        mapM_ (newEvent stream_id) events
+    return updated
+
+-- TODO: try make this a single database query
+fetchEvents :: EventStreamId -> Store (Int, [Event])
+fetchEvents stream_id = do
+    s <- getEventStream stream_id
+    events <- getEventsForStream stream_id
+    return (streamTag s, events)

@@ -12,7 +12,7 @@
 module Datastore.Event where
 
 import           Datastore.Store
-import           Datastore.EventStream      (EventStreamId(..))
+import           Datastore.Types
 import           EventSource.Store
 
 import           Control.Arrow
@@ -21,8 +21,6 @@ import           Data.Profunctor.Product.TH (makeAdaptorAndInstance)
 import           Data.Time.Clock
 import           GHC.Generics               (Generic)
 import           Opaleye
-
-newtype EventId = EventId Int deriving (Show, Eq)
 
 data Event' a b c d = Event
   { eventId        :: a
@@ -82,16 +80,3 @@ getEventsForStream (EventStreamId steam_id) =
             e <- eventQuery -< ()
             restrict -< eventStreamId e .== pgInt4 steam_id
             returnA -< e
-
--- rehydrate :: (Aggregate a, FromJSON (AggregateEvent a))
---           => Connection -> Int -> IO (Result a)
--- rehydrate conn stream = do
---     events <- runQuery conn $ proc () -> do
---         e <- eventQuery -< ()
---         restrict -< eventStreamId e .== pgInt4 stream
---         returnA -< e
---     return $ foldM applyEvent empty events
---
--- applyEvent :: (Aggregate a, FromJSON (AggregateEvent a))
---            => a -> Event -> Result a
--- applyEvent a e = apply <$> fromJSON (eventPayload e) <*> pure a
