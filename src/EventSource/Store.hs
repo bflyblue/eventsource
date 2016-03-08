@@ -1,13 +1,9 @@
+{-# LANGUAGE TypeFamilies          #-}
+
 module EventSource.Store where
 
-import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Either
-import           Control.Monad.Trans.Reader
+import Control.Monad.IO.Class
 
-type StoreT env err m = ReaderT env (EitherT err m)
-
-runStoreT :: env -> StoreT env err m a -> m (Either err a)
-runStoreT env = runEitherT . flip runReaderT env
-
-storeErr :: Monad m => err -> StoreT env err m a
-storeErr = lift . left
+class Store s where
+    transaction :: MonadIO m => s a -> m (Either String a)
+    rollback :: String -> s a
