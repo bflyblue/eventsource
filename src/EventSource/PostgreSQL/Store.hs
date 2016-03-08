@@ -11,7 +11,9 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.RWS.Strict
 import Data.Aeson
 import Data.Either
+import Data.Functor.Identity
 import Data.Hashable
+import qualified Data.Map.Strict as Map
 import Data.Typeable
 import Database.PostgreSQL.Simple
 import Haxl.Core.DataCache as DataCache
@@ -19,12 +21,21 @@ import Haxl.Core.DataCache as DataCache
 import EventSource.Aggregate as A
 
 newtype StreamId a = StreamId { streamId :: Int }
-type Version = Int
-type Cache = DataCache Versioned
-data Versioned a = Versioned Version a [EventT a]
 newtype SVal a = SVal (StreamId a)
+type Version = Int
 
-newtype PgStore a = PgStore { unPgStore :: RWST Connection () Cache (ExceptT String IO) a }
+data TState
+  = TState
+    { tsCache  :: DataCache Identity
+    , tsDeltas :: Map.Map Int Delta
+    }
+
+data Delta = Delta Version [Value]
+
+emptyTState :: TState
+emptyTState = TState DataCache.empty Map.empty
+
+newtype PgStore a = PgStore { unPgStore :: RWST Connection () TState (ExceptT String IO) a }
     deriving (Functor, Applicative, Monad, MonadIO)
 
 runPgStore :: Connection -> PgStore a -> IO (Either String a)
@@ -33,9 +44,22 @@ runPgStore conn a =
     -- default is ReadCommitted and sufficient for us:
     -- http://www.postgresql.org/docs/9.5/static/transaction-iso.html
     withTransaction conn $ do
-        er <- runExceptT (fst <$> evalRWST (unPgStore a) conn DataCache.empty)
+        er <- runExceptT (fst <$> evalRWST (unPgStore action) conn emptyTState)
         when (isLeft er) $ rollback conn
         return er
+  where
+    action = do
+        r <- a
+        persistChanges
+        return r
+
+persistChanges :: PgStore ()
+persistChanges = do
+    s <- PgStore get
+    forM_ (Map.toAscList (tsDeltas s)) $ \(stream, Delta old events) -> do
+        updateStream stream old (old + length events)
+        addEvents stream old events
+    PgStore $ put emptyTState
 
 throwStoreE :: String -> PgStore a
 throwStoreE = PgStore . lift . throwE
@@ -43,13 +67,27 @@ throwStoreE = PgStore . lift . throwE
 getConn :: PgStore Connection
 getConn = PgStore ask
 
-cacheLookup :: Typeable a => StreamId a -> PgStore (Maybe (Versioned a))
+cacheLookup :: Typeable a => StreamId a -> PgStore (Maybe a)
 cacheLookup stream = PgStore $ do
-    cache <- get
-    return $ DataCache.lookup stream cache
+    cache <- gets tsCache
+    return $ runIdentity <$> DataCache.lookup stream cache
 
-cacheInsert :: (Typeable a, Eq (StreamId a), Hashable (StreamId a)) => StreamId a -> Versioned a -> PgStore ()
-cacheInsert stream a = PgStore $ modify $ DataCache.insertNotShowable stream a
+cacheInsert :: (Typeable a, Eq (StreamId a), Hashable (StreamId a)) => StreamId a -> a -> PgStore ()
+cacheInsert stream a = PgStore $ do
+    s <- get
+    put s { tsCache = DataCache.insertNotShowable stream (Identity a) (tsCache s) }
+
+deltaInit :: StreamId a -> Version -> PgStore ()
+deltaInit stream version = PgStore $ do
+    s <- get
+    put s { tsDeltas = Map.insert (streamId stream) (Delta version []) (tsDeltas s) }
+
+deltaUpdate :: ToJSON (EventT a) => StreamId a -> [EventT a] -> PgStore ()
+deltaUpdate stream events = PgStore $ do
+    s <- get
+    put s { tsDeltas = Map.adjust go (streamId stream) (tsDeltas s) }
+  where
+    go (Delta v es) = Delta v (es ++ (toJSON <$> events))
 
 eventStream :: (Typeable a, Eq (StreamId a), Hashable (StreamId a), Aggregate a, FromJSON (EventT a)) => StreamId a -> PgStore (SVal a)
 eventStream stream = do
@@ -57,47 +95,54 @@ eventStream stream = do
     case maggr of
         Just _  -> return $ SVal stream
         Nothing -> do
-            ver <- getStream stream
-            events <- getEvents stream ver
+            ver <- getStream (streamId stream)
+            evals <- getEvents (streamId stream) ver
+            events <- case mapM fromJSON evals of
+                        Success es -> return es
+                        Error msg  -> throwStoreE msg
             let aggr = foldE A.empty events
-            cacheInsert stream (Versioned ver aggr [])
+            cacheInsert stream aggr
             return $ SVal stream
 
 rehydrate :: (Typeable a, Aggregate a) => SVal a -> PgStore a
 rehydrate (SVal stream) = do
     -- Internal error if this isn't a Just
-    Just (Versioned _ a _) <- cacheLookup stream
+    Just a <- cacheLookup stream
     return a
 
-applyEvents :: (Typeable a, Eq (StreamId a), Hashable (StreamId a), Aggregate a) => SVal a -> [EventT a] -> PgStore a
+applyEvents :: (Typeable a, Eq (StreamId a), Hashable (StreamId a), ToJSON (EventT a), Aggregate a) => SVal a -> [EventT a] -> PgStore a
 applyEvents (SVal stream) es = do
     -- Internal error if this isn't a Just
-    Just (Versioned ver a es') <- cacheLookup stream
+    Just a <- cacheLookup stream
     let a' = foldE a es
-    cacheInsert stream (Versioned ver a' (es' ++ es))
+    cacheInsert stream a
+    deltaUpdate stream es
     return a'
 
 ----
 
-getStream :: StreamId a -> PgStore Version
+getStream :: Int -> PgStore Version
 getStream stream = do
     conn <- getConn
-    tags <- liftIO $ query conn "select tag from event_streams where id = ?" (Only $ streamId stream)
+    tags <- liftIO $ query conn "select tag from event_streams where id = ?" (Only stream)
     case tags of
         [Only tag] -> return tag
         _          -> throwStoreE "Event stream not found"
 
-getEvents :: FromJSON (EventT a) => StreamId a -> Version -> PgStore [EventT a]
+updateStream :: Int -> Version -> Version -> PgStore ()
+updateStream stream old new = do
+    conn <- getConn
+    nrows <- liftIO $ execute conn "update events set version = ? where stream_id = ? and version = ?" (old, stream, new)
+    when (nrows == 0) $ throwStoreE "Update Conflict"
+
+getEvents :: Int -> Version -> PgStore [Value]
 getEvents stream version = do
     conn <- getConn
-    payloads <- liftIO $ query conn "select payload from events where stream_id = ? and version <= ? order by timestamp asc" (streamId stream, version)
-    case mapM (fromJSON . fromOnly) payloads of
-        Success events -> return events
-        Error msg -> throwStoreE msg         -- TODO: Better errors
+    vals <- liftIO $ query conn "select payload from events where stream_id = ? and version <= ? order by timestamp asc" (stream, version)
+    return $ fromOnly <$> vals
 
-addEvents :: ToJSON (EventT a) => StreamId a -> [EventT a] -> PgStore ()
-addEvents stream events = do
+addEvents :: Int -> Version -> [Value] -> PgStore ()
+addEvents stream version events = do
     conn <- getConn
-    let payloads = map toJSON events
-    _nrows <- liftIO $ executeMany conn "insert into events (stream_id, payload) values (?, ?)" [(streamId stream, p) | p <- payloads]
+    _nrows <- liftIO $ executeMany conn "insert into events (stream_id, index, payload) values (?, ?)" [(stream, version + i, e) | (i, e) <- zip [1..] events]
     return ()
