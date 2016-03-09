@@ -19,7 +19,6 @@ import           Haxl.Core.DataCache            as DataCache
 import           EventSource.Aggregate          as A
 
 newtype StreamId a = StreamId { streamId :: Int } deriving (Show, Eq, Ord, Hashable)
-newtype SVal a = SVal (StreamId a)
 type Version = Int
 
 data PgState = PgState
@@ -27,11 +26,10 @@ data PgState = PgState
     , sDeltas :: Map.Map Int Delta
     }
 
-data InternalError = InternalError String deriving (Show, Eq, Ord)
-
-instance Exception InternalError
-
 data Delta = Delta Version [Value] deriving (Show, Eq)
+
+data InternalError = InternalError String deriving (Show, Eq, Ord)
+instance Exception InternalError
 
 emptyPgState :: PgState
 emptyPgState = PgState DataCache.empty Map.empty
@@ -88,43 +86,45 @@ deltaInit stream version = PgStore $ do
     s <- get
     put s { sDeltas = Map.insert (streamId stream) (Delta version []) (sDeltas s) }
 
-deltaUpdate :: ToJSON (EventT a) => StreamId a -> [EventT a] -> PgStore ()
-deltaUpdate stream events = PgStore $ do
+deltaLookup :: StreamId a -> PgStore (Maybe Delta)
+deltaLookup stream = PgStore $ do
     s <- get
-    put s { sDeltas = Map.adjust go (streamId stream) (sDeltas s) }
-  where
-    go (Delta v es) = Delta v (es ++ (toJSON <$> events))
+    return $ Map.lookup (streamId stream) (sDeltas s)
 
-eventStream :: (Typeable a, Eq (StreamId a), Hashable (StreamId a), Aggregate a, FromJSON (EventT a)) => StreamId a -> PgStore (SVal a)
-eventStream stream = do
+deltaInsert :: StreamId a -> Delta -> PgStore ()
+deltaInsert stream delta = PgStore $ do
+    s <- get
+    put s { sDeltas = Map.insert (streamId stream) delta (sDeltas s) }
+
+rehydrate :: (Typeable a, Aggregate a, FromJSON (EventT a)) => StreamId a -> PgStore a
+rehydrate stream = do
     maggr <- cacheLookup stream
     case maggr of
-        Just _  -> return $ SVal stream
+        Just a  -> return a
         Nothing -> do
             ver <- getStream (streamId stream)
-            evals <- getEvents (streamId stream) ver
-            events <- case mapM fromJSON evals of
+            jsonEvents <- getEvents (streamId stream) ver
+            events <- case mapM fromJSON jsonEvents of
                         Success es -> return es
                         Error msg  -> throwError msg
-            let aggr = foldE A.empty events
-            cacheInsert stream aggr
+            let a = foldE A.empty events
+            cacheInsert stream a
             deltaInit stream ver
-            return $ SVal stream
+            return a
 
-rehydrate :: (Typeable a, Aggregate a) => SVal a -> PgStore a
-rehydrate (SVal stream) = do
-    -- Internal error if this isn't a Just
-    Just a <- cacheLookup stream
-    return a
+applyEvents :: (Typeable a, Eq (StreamId a), Hashable (StreamId a), ToJSON (EventT a), Aggregate a) => StreamId a -> [EventT a] -> PgStore ()
+applyEvents stream events = do
+    let jsonEvents = toJSON <$> events
+    mdelta <- deltaLookup stream
+    delta  <- case mdelta of
+                Just (Delta ver es) -> return $ Delta ver (es ++ jsonEvents)
+                Nothing             -> Delta <$> getStream (streamId stream) <*> pure jsonEvents
+    deltaInsert stream delta
 
-applyEvents :: (Typeable a, Eq (StreamId a), Hashable (StreamId a), ToJSON (EventT a), Aggregate a) => SVal a -> [EventT a] -> PgStore a
-applyEvents (SVal stream) es = do
-    -- Internal error if this isn't a Just
-    Just a <- cacheLookup stream
-    let a' = foldE a es
-    cacheInsert stream a
-    deltaUpdate stream es
-    return a'
+    maggr <- cacheLookup stream
+    case maggr of
+        Just a  -> cacheInsert stream (foldE a events)
+        Nothing -> return ()
 
 ----
 

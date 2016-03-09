@@ -17,16 +17,14 @@ main = do
     conn <- connect conninfo
 
     shaun <- runPgStore conn $ do
-        p <- newPerson
-        s <- eventStream p
-        _ <- applyEvents s [SetPerson "Shaun" 39, ChangePersonAge 21]
-        _ <- applyEvents s [ChangePersonAge 24]
-        return p
+        s <- newPerson
+        applyEvents s [SetPerson "Shaun" 39, ChangePersonAge 21]
+        applyEvents s [ChangePersonAge 24]
+        return s
 
     print shaun
 
-    person <- runPgStore conn $ do
-        s <- eventStream shaun
-        rehydrate s
+    person <- runPgStore conn $
+        rehydrate shaun
 
     print person
