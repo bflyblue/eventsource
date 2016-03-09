@@ -17,13 +17,14 @@ library
   hs-source-dirs:      src
   exposed-modules:
                        Datastore.Aggregates.Person
-                       Datastore.Event
-                       Datastore.EventStream
-                       Datastore.Store
-                       Datastore.Types
+                    --    Datastore.Event
+                    --    Datastore.EventStream
+                    --    Datastore.Store
+                    --    Datastore.Types
                        EventSource.Aggregate
-                       EventSource.EventStream
-                       EventSource.Store
+                    --    EventSource.EventStream
+                    --    EventSource.Store
+                       EventSource.PostgreSQL.Store
   ghc-options:         -Wall
   build-depends:       base >= 4.7 && < 5
                      , aeson

@@ -2,12 +2,9 @@
 
 module Main where
 
-import Database.PostgreSQL.Simple
-
-import Datastore.Store
+import EventSource.PostgreSQL.Store
 import Datastore.Aggregates.Person
-
-import EventSource.EventStream as ES
+import Database.PostgreSQL.Simple
 
 
 main :: IO ()
@@ -19,12 +16,20 @@ main = do
 
     conn <- connect conninfo
 
-    r <- runStore conn $ do
-        shaun <- newPerson
-        (tag, p) <- ES.rehydrate shaun
-        r1 <- ES.addEvents shaun tag [SetPerson "Shaun" 39]
-        es <- ES.fetchEvents shaun
-        (tag2, p2) <- ES.rehydrate shaun
-        return (p, r1, es, tag2, p2)
+    shaun <- runPgStore conn $ do
+        p <- newPerson
+        s <- eventStream p
+        _ <- applyEvents s [SetPerson "Shaun" 39, ChangePersonAge 21]
+        _ <- applyEvents s [ChangePersonAge 24]
+        return p
 
-    print r
+    print shaun
+
+    case shaun of
+        Right stream -> do
+            person <- runPgStore conn $ do
+                s <- eventStream stream
+                rehydrate s
+
+            print person
+        Left err -> putStrLn err

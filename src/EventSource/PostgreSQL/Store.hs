@@ -2,7 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module EventStore.PostgreSQL.Store where
+module EventSource.PostgreSQL.Store where
 
 import Control.Monad
 import Control.Monad.IO.Class
@@ -20,7 +20,7 @@ import Haxl.Core.DataCache as DataCache
 
 import EventSource.Aggregate as A
 
-newtype StreamId a = StreamId { streamId :: Int }
+newtype StreamId a = StreamId { streamId :: Int } deriving (Show, Eq, Ord, Hashable)
 newtype SVal a = SVal (StreamId a)
 type Version = Int
 
@@ -30,7 +30,7 @@ data TState
     , tsDeltas :: Map.Map Int Delta
     }
 
-data Delta = Delta Version [Value]
+data Delta = Delta Version [Value] deriving (Show, Eq)
 
 emptyTState :: TState
 emptyTState = TState DataCache.empty Map.empty
@@ -56,10 +56,14 @@ runPgStore conn a =
 persistChanges :: PgStore ()
 persistChanges = do
     s <- PgStore get
-    forM_ (Map.toAscList (tsDeltas s)) $ \(stream, Delta old events) -> do
+    let changes = filter hasEvents $ Map.toAscList (tsDeltas s)
+    forM_ changes $ \(stream, Delta old events) -> do
         updateStream stream old (old + length events)
         addEvents stream old events
     PgStore $ put emptyTState
+  where
+    hasEvents (_, Delta _ []) = False
+    hasEvents _               = True
 
 throwStoreE :: String -> PgStore a
 throwStoreE = PgStore . lift . throwE
@@ -102,6 +106,7 @@ eventStream stream = do
                         Error msg  -> throwStoreE msg
             let aggr = foldE A.empty events
             cacheInsert stream aggr
+            deltaInit stream ver
             return $ SVal stream
 
 rehydrate :: (Typeable a, Aggregate a) => SVal a -> PgStore a
@@ -121,10 +126,18 @@ applyEvents (SVal stream) es = do
 
 ----
 
+newStream :: String -> PgStore Int
+newStream stype = do
+    conn <- getConn
+    streams <- liftIO $ query conn "insert into event_streams (type, version) values (?,?) returning id" (stype, 0 :: Int)
+    case streams of
+        [Only stream] -> return stream
+        _             -> throwStoreE "INSERT RETURNING didn't return stream id"
+
 getStream :: Int -> PgStore Version
 getStream stream = do
     conn <- getConn
-    tags <- liftIO $ query conn "select tag from event_streams where id = ?" (Only stream)
+    tags <- liftIO $ query conn "select version from event_streams where id = ?" (Only stream)
     case tags of
         [Only tag] -> return tag
         _          -> throwStoreE "Event stream not found"
@@ -132,17 +145,17 @@ getStream stream = do
 updateStream :: Int -> Version -> Version -> PgStore ()
 updateStream stream old new = do
     conn <- getConn
-    nrows <- liftIO $ execute conn "update events set version = ? where stream_id = ? and version = ?" (old, stream, new)
+    nrows <- liftIO $ execute conn "update event_streams set version = ? where id = ? and version = ?" (new, stream, old)
     when (nrows == 0) $ throwStoreE "Update Conflict"
 
 getEvents :: Int -> Version -> PgStore [Value]
 getEvents stream version = do
     conn <- getConn
-    vals <- liftIO $ query conn "select payload from events where stream_id = ? and version <= ? order by timestamp asc" (stream, version)
+    vals <- liftIO $ query conn "select payload from events where stream_id = ? and index <= ? order by timestamp asc" (stream, version)
     return $ fromOnly <$> vals
 
 addEvents :: Int -> Version -> [Value] -> PgStore ()
 addEvents stream version events = do
     conn <- getConn
-    _nrows <- liftIO $ executeMany conn "insert into events (stream_id, index, payload) values (?, ?)" [(stream, version + i, e) | (i, e) <- zip [1..] events]
+    _nrows <- liftIO $ executeMany conn "insert into events (stream_id, index, payload) values (?, ?, ?)" [(stream, version + i, e) | (i, e) <- zip [1..] events]
     return ()
