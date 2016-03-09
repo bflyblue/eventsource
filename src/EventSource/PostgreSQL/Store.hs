@@ -1,52 +1,54 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings          #-}
 
 module EventSource.PostgreSQL.Store where
 
-import Control.Monad
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Except
-import Control.Monad.Trans.RWS.Strict
-import Data.Aeson
-import Data.Either
-import Data.Functor.Identity
-import Data.Hashable
-import qualified Data.Map.Strict as Map
-import Data.Typeable
-import Database.PostgreSQL.Simple
-import Haxl.Core.DataCache as DataCache
+import           Control.Exception
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.RWS.Strict
+import           Data.Aeson
+import           Data.Functor.Identity
+import           Data.Hashable
+import qualified Data.Map.Strict                as Map
+import           Data.Typeable
+import           Database.PostgreSQL.Simple
+import           Haxl.Core.DataCache            as DataCache
 
-import EventSource.Aggregate as A
+import           EventSource.Aggregate          as A
 
 newtype StreamId a = StreamId { streamId :: Int } deriving (Show, Eq, Ord, Hashable)
 newtype SVal a = SVal (StreamId a)
 type Version = Int
 
-data TState
-  = TState
-    { tsCache  :: DataCache Identity
-    , tsDeltas :: Map.Map Int Delta
+data PgState = PgState
+    { sCache  :: DataCache Identity
+    , sDeltas :: Map.Map Int Delta
     }
+
+data InternalError = InternalError String deriving (Show, Eq, Ord)
+
+instance Exception InternalError
 
 data Delta = Delta Version [Value] deriving (Show, Eq)
 
-emptyTState :: TState
-emptyTState = TState DataCache.empty Map.empty
+emptyPgState :: PgState
+emptyPgState = PgState DataCache.empty Map.empty
 
-newtype PgStore a = PgStore { unPgStore :: RWST Connection () TState (ExceptT String IO) a }
-    deriving (Functor, Applicative, Monad, MonadIO)
+newtype PgStore a = PgStore
+    { unPgStore :: RWST Connection
+                        ()
+                        PgState
+                        IO          a
+    } deriving (Functor, Applicative, Monad, MonadIO)
 
-runPgStore :: Connection -> PgStore a -> IO (Either String a)
+runPgStore :: Connection -> PgStore a -> IO a
 runPgStore conn a =
     -- uses PostgreSQL's per-connection 'default_transaction_isolation' variable which by
     -- default is ReadCommitted and sufficient for us:
     -- http://www.postgresql.org/docs/9.5/static/transaction-iso.html
-    withTransaction conn $ do
-        er <- runExceptT (fst <$> evalRWST (unPgStore action) conn emptyTState)
-        when (isLeft er) $ rollback conn
-        return er
+    withTransaction conn $ fst <$> evalRWST (unPgStore action) conn emptyPgState
   where
     action = do
         r <- a
@@ -56,40 +58,40 @@ runPgStore conn a =
 persistChanges :: PgStore ()
 persistChanges = do
     s <- PgStore get
-    let changes = filter hasEvents $ Map.toAscList (tsDeltas s)
+    let changes = filter hasEvents $ Map.toAscList (sDeltas s)
     forM_ changes $ \(stream, Delta old events) -> do
         updateStream stream old (old + length events)
         addEvents stream old events
-    PgStore $ put emptyTState
+    PgStore $ put emptyPgState
   where
     hasEvents (_, Delta _ []) = False
     hasEvents _               = True
 
-throwStoreE :: String -> PgStore a
-throwStoreE = PgStore . lift . throwE
+throwError :: String -> PgStore a
+throwError = PgStore . liftIO . throw . InternalError
 
 getConn :: PgStore Connection
 getConn = PgStore ask
 
 cacheLookup :: Typeable a => StreamId a -> PgStore (Maybe a)
 cacheLookup stream = PgStore $ do
-    cache <- gets tsCache
+    cache <- gets sCache
     return $ runIdentity <$> DataCache.lookup stream cache
 
 cacheInsert :: (Typeable a, Eq (StreamId a), Hashable (StreamId a)) => StreamId a -> a -> PgStore ()
 cacheInsert stream a = PgStore $ do
     s <- get
-    put s { tsCache = DataCache.insertNotShowable stream (Identity a) (tsCache s) }
+    put s { sCache = DataCache.insertNotShowable stream (Identity a) (sCache s) }
 
 deltaInit :: StreamId a -> Version -> PgStore ()
 deltaInit stream version = PgStore $ do
     s <- get
-    put s { tsDeltas = Map.insert (streamId stream) (Delta version []) (tsDeltas s) }
+    put s { sDeltas = Map.insert (streamId stream) (Delta version []) (sDeltas s) }
 
 deltaUpdate :: ToJSON (EventT a) => StreamId a -> [EventT a] -> PgStore ()
 deltaUpdate stream events = PgStore $ do
     s <- get
-    put s { tsDeltas = Map.adjust go (streamId stream) (tsDeltas s) }
+    put s { sDeltas = Map.adjust go (streamId stream) (sDeltas s) }
   where
     go (Delta v es) = Delta v (es ++ (toJSON <$> events))
 
@@ -103,7 +105,7 @@ eventStream stream = do
             evals <- getEvents (streamId stream) ver
             events <- case mapM fromJSON evals of
                         Success es -> return es
-                        Error msg  -> throwStoreE msg
+                        Error msg  -> throwError msg
             let aggr = foldE A.empty events
             cacheInsert stream aggr
             deltaInit stream ver
@@ -132,7 +134,7 @@ newStream stype = do
     streams <- liftIO $ query conn "insert into event_streams (type, version) values (?,?) returning id" (stype, 0 :: Int)
     case streams of
         [Only stream] -> return stream
-        _             -> throwStoreE "INSERT RETURNING didn't return stream id"
+        _             -> throwError "INSERT RETURNING didn't return stream id"
 
 getStream :: Int -> PgStore Version
 getStream stream = do
@@ -140,13 +142,13 @@ getStream stream = do
     tags <- liftIO $ query conn "select version from event_streams where id = ?" (Only stream)
     case tags of
         [Only tag] -> return tag
-        _          -> throwStoreE "Event stream not found"
+        _          -> throwError "Event stream not found"
 
 updateStream :: Int -> Version -> Version -> PgStore ()
 updateStream stream old new = do
     conn <- getConn
     nrows <- liftIO $ execute conn "update event_streams set version = ? where id = ? and version = ?" (new, stream, old)
-    when (nrows == 0) $ throwStoreE "Update Conflict"
+    when (nrows == 0) $ throwError "Update Conflict"
 
 getEvents :: Int -> Version -> PgStore [Value]
 getEvents stream version = do

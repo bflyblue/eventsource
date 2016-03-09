@@ -25,11 +25,8 @@ main = do
 
     print shaun
 
-    case shaun of
-        Right stream -> do
-            person <- runPgStore conn $ do
-                s <- eventStream stream
-                rehydrate s
+    person <- runPgStore conn $ do
+        s <- eventStream shaun
+        rehydrate s
 
-            print person
-        Left err -> putStrLn err
+    print person
