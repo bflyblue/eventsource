@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
-module EventSource.Aggregate where
+module EventStore.Aggregate where
 
 import Data.List (foldl')
 

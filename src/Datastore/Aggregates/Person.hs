@@ -6,8 +6,8 @@
 
 module Datastore.Aggregates.Person where
 
-import qualified EventSource.Aggregate   as ES
-import           EventSource.PostgreSQL.Store
+import qualified EventStore.Aggregate   as ES
+import           EventStore.PostgreSQL.Store
 
 import GHC.Generics
 import Data.Aeson

@@ -2,7 +2,7 @@
 
 module Main where
 
-import EventSource.PostgreSQL.Store
+import EventStore.PostgreSQL.Store
 import Datastore.Aggregates.Person
 import Database.PostgreSQL.Simple
 

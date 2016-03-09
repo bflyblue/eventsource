@@ -2,7 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
-module EventSource.PostgreSQL.Store where
+module EventStore.PostgreSQL.Store where
 
 import           Control.Exception
 import           Control.Monad
@@ -16,7 +16,7 @@ import           Data.Typeable
 import           Database.PostgreSQL.Simple
 import           Haxl.Core.DataCache            as DataCache
 
-import           EventSource.Aggregate          as A
+import           EventStore.Aggregate           as A
 
 newtype StreamId a = StreamId { streamId :: Int } deriving (Show, Eq, Ord, Hashable)
 type Version = Int
