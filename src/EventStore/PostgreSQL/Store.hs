@@ -152,7 +152,7 @@ updateStream stream old new = do
 getEvents :: Int -> Version -> PgStore [Value]
 getEvents stream version = do
     conn <- getConn
-    vals <- liftIO $ query conn "select payload from events where stream_id = ? and index <= ? order by timestamp asc" (stream, version)
+    vals <- liftIO $ query conn "select payload from events where stream_id = ? and index <= ? order by index asc" (stream, version)
     return $ fromOnly <$> vals
 
 addEvents :: Int -> Version -> [Value] -> PgStore ()

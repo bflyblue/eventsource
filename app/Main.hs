@@ -2,9 +2,14 @@
 
 module Main where
 
-import EventStore.PostgreSQL.Store
+import Control.Concurrent
+import Control.Concurrent.Async
+import Control.Exception
+import Control.Monad
+import Data.Pool
 import Datastore.Aggregates.Person
 import Database.PostgreSQL.Simple
+import EventStore.PostgreSQL.Store
 
 
 main :: IO ()
@@ -14,17 +19,29 @@ main = do
                                       , connectUser     = "shaun"
                                       , connectPassword = "icecream" }
 
-    conn <- connect conninfo
+    pool <- createPool (connect conninfo) close 1 5 20
 
-    shaun <- runPgStore conn $ do
-        s <- initPerson (Person "Shaun" 39)
-        applyEvents s [ChangedName "Shaun Sharples", ChangedAge 21]
-        applyEvents s [ChangedAge 39]
-        return s
+    shaun <- withResource pool $ flip runPgStore (initPerson (Person "Shaun" 39))
 
-    print shaun
+    asyncs <- replicateM 20 $ async (updateThread pool shaun)
+    mapM_ wait asyncs
 
-    person <- runPgStore conn $
-        rehydrate shaun
+updateThread :: Pool Connection -> PersonId -> IO ()
+updateThread pool person = replicateM_ 1000 $ do
+    go
+    threadDelay 1
 
-    print person
+  where
+    go =
+        withResource pool $ \conn -> do
+            p <- runPgStore conn $ rehydrate person
+            print p
+
+            u <- try $ runPgStore conn $ do
+                applyEvents person [ChangedName "Shaun Sharples", ChangedAge 21]
+                applyEvents person [ChangedAge 39]
+            case u of
+                Left (InternalError msg) -> do
+                    putStrLn $ "Update failed: " ++ msg ++ ", retrying..."
+                    go
+                Right () -> putStrLn "Update successful"
