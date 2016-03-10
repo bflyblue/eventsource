@@ -28,15 +28,23 @@ type PersonId = StreamId (Versioned Person)
 instance Aggregate (Versioned Person) where
     data EventT (Versioned Person)
       = SetPerson Text Int
-      | ChangePersonAge Int
+      | ChangedName Text
+      | ChangedAge Int
         deriving (Show, Eq, Ord, Generic)
 
     empty = Initial
-    apply (SetPerson name age)  = vset (Person name age)
-    apply (ChangePersonAge age) = vadjust (\p -> Update $ p { personAge = age })
+    apply (SetPerson   name age) = vset (Person name age)
+    apply (ChangedName name    ) = vadjust (\p -> Update $ p { personName = name })
+    apply (ChangedAge  age     ) = vadjust (\p -> Update $ p { personAge = age })
 
 instance FromJSON (EventT (Versioned Person))
 instance ToJSON (EventT (Versioned Person))
 
 newPerson :: PgStore PersonId
 newPerson = StreamId <$> newStream "person"
+
+initPerson :: Person -> PgStore PersonId
+initPerson (Person name age) = do
+    p <- newPerson
+    applyEvents p [SetPerson name age]
+    return p

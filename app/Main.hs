@@ -17,9 +17,9 @@ main = do
     conn <- connect conninfo
 
     shaun <- runPgStore conn $ do
-        s <- newPerson
-        applyEvents s [SetPerson "Shaun" 39, ChangePersonAge 21]
-        applyEvents s [ChangePersonAge 24]
+        s <- initPerson (Person "Shaun" 39)
+        applyEvents s [ChangedName "Shaun Sharples", ChangedAge 21]
+        applyEvents s [ChangedAge 39]
         return s
 
     print shaun
