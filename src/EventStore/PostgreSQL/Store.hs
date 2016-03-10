@@ -95,21 +95,36 @@ deltaInsert stream delta = PgStore $ do
     s <- get
     put s { sDeltas = Map.insert (streamId stream) delta (sDeltas s) }
 
-rehydrate :: (Typeable a, Aggregate a, FromJSON (EventT a)) => StreamId a -> PgStore a
+rehydrate :: (Typeable a, Aggregate a, FromJSON a, FromJSON (EventT a)) => StreamId a -> PgStore a
 rehydrate stream = do
     maggr <- cacheLookup stream
     case maggr of
         Just a  -> return a
         Nothing -> do
-            ver <- getStream (streamId stream)
-            jsonEvents <- getEvents (streamId stream) ver
-            events <- case mapM fromJSON jsonEvents of
-                        Success es -> return es
-                        Error msg  -> throwError msg
-            let a = foldE A.empty events
-            cacheInsert stream a
+            (ver, snap) <- getStreamSnap (streamId stream)
+            (a, es) <- case snap of
+                Just snapver -> do
+                    s <- getSnapshot (streamId stream) snapver
+                    jsonEvents <- getEventsRange (streamId stream) snapver ver
+                    s' <- fromResult (fromJSON s)
+                    return (s', jsonEvents)
+                Nothing -> do
+                    jsonEvents <- getEvents (streamId stream) ver
+                    return (A.empty, jsonEvents)
+            events <- fromResult (mapM fromJSON es)
+            let a' = foldE a events
+            cacheInsert stream a'
             deltaInit stream ver
-            return a
+            return a'
+  where
+    fromResult (Success r) = return r
+    fromResult (Error msg) = throwError msg
+
+snapshot :: (Typeable a, Aggregate a, FromJSON (EventT a), FromJSON a, ToJSON a) => StreamId a -> PgStore ()
+snapshot stream = do
+    a <- rehydrate stream
+    Just (Delta ver _) <- deltaLookup stream
+    snapshotStream (streamId stream) ver (toJSON a)
 
 applyEvents :: (Typeable a, Eq (StreamId a), Hashable (StreamId a), ToJSON (EventT a), Aggregate a) => StreamId a -> [EventT a] -> PgStore ()
 applyEvents stream events = do
@@ -138,10 +153,18 @@ newStream stype = do
 getStream :: Int -> PgStore Version
 getStream stream = do
     conn <- getConn
-    tags <- liftIO $ query conn "select version from event_streams where id = ?" (Only stream)
-    case tags of
-        [Only tag] -> return tag
+    vers <- liftIO $ query conn "select version from event_streams where id = ?" (Only stream)
+    case vers of
+        [Only ver] -> return ver
         _          -> throwError "Event stream not found"
+
+getStreamSnap :: Int -> PgStore (Version, Maybe Version)
+getStreamSnap stream = do
+    conn <- getConn
+    vers <- liftIO $ query conn "select version, snapshot from event_streams where id = ?" (Only stream)
+    case vers of
+        [verpair] -> return verpair
+        _         -> throwError "Event stream not found"
 
 updateStream :: Int -> Version -> Version -> PgStore ()
 updateStream stream old new = do
@@ -149,10 +172,32 @@ updateStream stream old new = do
     nrows <- liftIO $ execute conn "update event_streams set version = ? where id = ? and version = ?" (new, stream, old)
     when (nrows == 0) $ throwError "Update Conflict"
 
+snapshotStream :: Int -> Version -> Value -> PgStore ()
+snapshotStream stream version value = do
+    conn <- getConn
+    _ <- liftIO $ execute conn "insert into snapshots (stream_id, version, payload) values (?,?,?) on conflict (stream_id, version) do update set payload = ?"
+                               (stream, version, value, value)
+    _ <- liftIO $ execute conn "update event_streams set snapshot = ? where id = ? and coalesce(snapshot, 0) < ?" (version, stream, version)
+    return ()
+
+getSnapshot :: Int -> Version -> PgStore Value
+getSnapshot stream version = do
+    conn <- getConn
+    vals <- liftIO $ query conn "select payload from snapshots where stream_id = ? and version = ?" (stream, version)
+    case vals of
+        [Only val] -> return val
+        _          -> throwError "Snapshot not found"
+
 getEvents :: Int -> Version -> PgStore [Value]
 getEvents stream version = do
     conn <- getConn
     vals <- liftIO $ query conn "select payload from events where stream_id = ? and index <= ? order by index asc" (stream, version)
+    return $ fromOnly <$> vals
+
+getEventsRange :: Int -> Version -> Version -> PgStore [Value]
+getEventsRange stream after till = do
+    conn <- getConn
+    vals <- liftIO $ query conn "select payload from events where stream_id = ? and index > ? and index <= ? order by index asc" (stream, after, till)
     return $ fromOnly <$> vals
 
 addEvents :: Int -> Version -> [Value] -> PgStore ()

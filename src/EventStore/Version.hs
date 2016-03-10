@@ -1,7 +1,11 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module EventStore.Version where
 
+import GHC.Generics
+
 data Versioned a = Initial | Version Int a | Invalid Int | Deleted Int
-    deriving (Show, Eq, Ord)
+    deriving (Show, Eq, Ord, Generic)
 
 data Change a = Update a | Delete | Invalidate
     deriving (Show, Eq, Ord)

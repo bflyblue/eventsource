@@ -27,14 +27,15 @@ main = do
     mapM_ wait asyncs
 
 updateThread :: Pool Connection -> PersonId -> IO ()
-updateThread pool person = replicateM_ 1000 $ do
-    go
+updateThread pool person = forM_ [1..1000] $ \i -> do
+    go (i :: Int)
     threadDelay 1
-
   where
-    go =
+    go i =
         withResource pool $ \conn -> do
-            p <- runPgStore conn $ rehydrate person
+            p <- runPgStore conn $ do
+                when (i `mod` 10 == 0) (snapshot person)
+                rehydrate person
             print p
 
             u <- try $ runPgStore conn $ do
@@ -43,5 +44,5 @@ updateThread pool person = replicateM_ 1000 $ do
             case u of
                 Left (InternalError msg) -> do
                     putStrLn $ "Update failed: " ++ msg ++ ", retrying..."
-                    go
+                    go (succ i)
                 Right () -> putStrLn "Update successful"
