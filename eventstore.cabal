@@ -1,4 +1,4 @@
-name:                eventsource
+name:                eventstore
 version:             0.1.0.0
 synopsis:
 description:         Please see README.md
@@ -18,6 +18,7 @@ library
   exposed-modules:
                        Datastore.Aggregates.Person
                        EventStore.Aggregate
+                       EventStore.Version
                        EventStore.PostgreSQL.Store
   ghc-options:         -Wall
   build-depends:       base >= 4.7 && < 5
@@ -43,7 +44,7 @@ library
                      , warp
   default-language:    Haskell2010
 
-executable eventsource-exe
+executable eventstore-exe
   hs-source-dirs:      app
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
@@ -52,7 +53,7 @@ executable eventsource-exe
                      , opaleye
                      , postgresql-simple
                      , resource-pool
-                     , eventsource
+                     , eventstore
                      , text
   default-language:    Haskell2010
 

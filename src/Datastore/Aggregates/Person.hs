@@ -6,8 +6,9 @@
 
 module Datastore.Aggregates.Person where
 
-import qualified EventStore.Aggregate   as ES
-import           EventStore.PostgreSQL.Store
+import EventStore.Aggregate
+import EventStore.Version
+import EventStore.PostgreSQL.Store
 
 import GHC.Generics
 import Data.Aeson
@@ -22,20 +23,20 @@ data Person = Person
 instance FromJSON Person
 instance ToJSON Person
 
-type PersonId = StreamId Person
+type PersonId = StreamId (Versioned Person)
 
-instance ES.Aggregate Person where
-    data EventT Person
+instance Aggregate (Versioned Person) where
+    data EventT (Versioned Person)
       = SetPerson Text Int
       | ChangePersonAge Int
         deriving (Show, Eq, Ord, Generic)
 
-    empty = Person "" 0
-    apply _               (SetPerson name age)  = Person name age
-    apply (Person name _) (ChangePersonAge age) = Person name age
+    empty = Initial
+    apply (SetPerson name age)  = vset (Person name age)
+    apply (ChangePersonAge age) = vadjust (\p -> Update $ p { personAge = age })
 
-instance FromJSON (ES.EventT Person)
-instance ToJSON (ES.EventT Person)
+instance FromJSON (EventT (Versioned Person))
+instance ToJSON (EventT (Versioned Person))
 
 newPerson :: PgStore PersonId
 newPerson = StreamId <$> newStream "person"

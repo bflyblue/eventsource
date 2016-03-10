@@ -28,17 +28,14 @@ data PgState = PgState
 
 data Delta = Delta Version [Value] deriving (Show, Eq)
 
-data InternalError = InternalError String deriving (Show, Eq, Ord)
-instance Exception InternalError
+data PgStoreError = InternalError String deriving (Show, Eq, Ord)
+instance Exception PgStoreError
 
 emptyPgState :: PgState
 emptyPgState = PgState DataCache.empty Map.empty
 
 newtype PgStore a = PgStore
-    { unPgStore :: RWST Connection
-                        ()
-                        PgState
-                        IO          a
+    { unPgStore :: RWST Connection () PgState IO a
     } deriving (Functor, Applicative, Monad, MonadIO)
 
 runPgStore :: Connection -> PgStore a -> IO a
@@ -57,10 +54,12 @@ persistChanges :: PgStore ()
 persistChanges = do
     s <- PgStore get
     let changes = filter hasEvents $ Map.toAscList (sDeltas s)
-    forM_ changes $ \(stream, Delta old events) -> do
-        updateStream stream old (old + length events)
+    d <- forM changes $ \(stream, Delta old events) -> do
+        let new = old + length events
+        updateStream stream old new
         addEvents stream old events
-    PgStore $ put emptyPgState
+        return (stream, Delta new [])
+    PgStore $ put s { sDeltas = Map.fromList d }
   where
     hasEvents (_, Delta _ []) = False
     hasEvents _               = True
