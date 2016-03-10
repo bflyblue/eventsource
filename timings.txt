@@ -1,0 +1,3 @@
+20 x 1000 no snapshots	= 11m10s
+20 x 1000 every 100	=  2m21s
+20 x 1000 every 10 	=  1m58s
