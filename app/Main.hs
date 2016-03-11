@@ -5,7 +5,6 @@ module Main where
 import Datastore.Aggregates.TrainingProgram
 import Database.PostgreSQL.Simple
 import EventStore.PostgreSQL
-import EventStore.Version
 
 import qualified Data.HashSet as Set
 
@@ -31,10 +30,8 @@ main = do
 
     program <- runPgStore conn $ do
         snapshot tp1
-        prog  <- rehydrate tp1
-        parts <- case prog of
-                    (Version _ p) -> mapM rehydrate (Set.toList $ tpParticipants p)
-                    _             -> return []
+        prog  <- rehydrate' tp1
+        parts <- mapM rehydrate' (Set.toList $ tpParticipants prog)
         return (prog, parts)
 
     print program

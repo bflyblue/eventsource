@@ -8,13 +8,14 @@ module EventStore.PostgreSQL
 , runPgStore
 , throwError
 , rehydrate
+, rehydrate'
 , applyEvents
 , snapshot
 , newStream
 ) where
 
-
 import           EventStore.Aggregate                       as A
+import           EventStore.Version
 import           EventStore.PostgreSQL.Internal.Cache
 import           EventStore.PostgreSQL.Internal.Delta
 import           EventStore.PostgreSQL.Internal.EventStream
@@ -24,6 +25,16 @@ import           EventStore.PostgreSQL.Internal.Types
 
 import           Data.Aeson
 import           Data.Typeable                              (Typeable)
+
+rehydrate' :: (Typeable (Versioned a), Aggregate (Versioned a), FromJSON (Versioned a), FromJSON (EventT (Versioned a)))
+          => StreamId (Versioned a) -> PgStore a
+rehydrate' stream = do
+    va <- rehydrate stream
+    case va of
+        Version _ a -> return a
+        Initial     -> throwError "Attempt to use uninitialised entity"
+        Deleted _   -> throwError "Attempt to use deleted entity"
+        Invalid _   -> throwError "Attempt to use invalidated entity"
 
 rehydrate :: (Typeable a, Aggregate a, FromJSON a, FromJSON (EventT a))
           => StreamId a -> PgStore a
