@@ -24,12 +24,12 @@ persistChanges :: PgStore ()
 persistChanges = do
     s <- PgStore get
     let changes = filter hasEvents $ Map.toAscList (sDeltas s)
-    d <- forM changes $ \(stream, Delta old events) -> do
+    d <- forM changes $ \(stream, Delta old snap events) -> do
         let new = old + length events
         updateStream stream old new
         addEvents stream old events
-        return (stream, Delta new [])
+        return (stream, Delta new snap [])
     PgStore $ put s { sDeltas = Map.fromList d }
   where
-    hasEvents (_, Delta _ []) = False
-    hasEvents _               = True
+    hasEvents (_, Delta _ _ []) = False
+    hasEvents _                 = True

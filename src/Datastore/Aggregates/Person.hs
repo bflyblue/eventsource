@@ -1,19 +1,19 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 module Datastore.Aggregates.Person where
 
-import EventStore.Aggregate
-import EventStore.Version
-import EventStore.PostgreSQL
+import           EventStore.Aggregate
+import           EventStore.PostgreSQL
+import           EventStore.Version
 
-import GHC.Generics
-import Data.Aeson
-import Data.Hashable
-import Data.Text
+import           Data.Aeson
+import           Data.Hashable
+import           Data.Text
+import           GHC.Generics
 
 data Person = Person
   { personName :: Text

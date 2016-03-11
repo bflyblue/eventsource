@@ -8,8 +8,8 @@ import qualified Data.Map.Strict                      as Map
 
 import           EventStore.PostgreSQL.Internal.Types
 
-deltaInit :: StreamId a -> Version -> PgStore ()
-deltaInit stream version = deltaInsert stream (Delta version [])
+deltaInit :: StreamId a -> Version -> Maybe Version -> PgStore ()
+deltaInit stream version snapshot = deltaInsert stream (Delta version snapshot [])
 
 deltaInsert :: StreamId a -> Delta -> PgStore ()
 deltaInsert stream delta = PgStore $ do

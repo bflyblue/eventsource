@@ -2,14 +2,12 @@
 
 module Main where
 
-import Control.Concurrent
-import Control.Concurrent.Async
-import Control.Exception
-import Control.Monad
-import Data.Pool
-import Datastore.Aggregates.Person
+import Datastore.Aggregates.TrainingProgram
 import Database.PostgreSQL.Simple
 import EventStore.PostgreSQL
+import EventStore.Version
+
+import qualified Data.HashSet as Set
 
 main :: IO ()
 main = do
@@ -18,30 +16,25 @@ main = do
                                       , connectUser     = "shaun"
                                       , connectPassword = "icecream" }
 
-    pool <- createPool (connect conninfo) close 1 5 20
+    conn <- connect conninfo
 
-    shaun <- withResource pool $ flip runPgStore (initPerson (Person "Shaun" 39))
+    tp1 <- runPgStore conn $ do
+        tp  <- initTrainingProgram "Program 1"
+        _p1 <- addParticipant tp "Participant 1"
+        _p2 <- addParticipant tp "Participant 2"
+        return tp
 
-    asyncs <- replicateM 20 $ async (updateThread pool shaun)
-    mapM_ wait asyncs
+    runPgStore conn $ do
+        _p3 <- addParticipant tp1 "Participant 3"
+        _p4 <- addParticipant tp1 "Participant 4"
+        return ()
 
-updateThread :: Pool Connection -> PersonId -> IO ()
-updateThread pool person = forM_ [1..1000] $ \i -> do
-    go (i :: Int)
-    threadDelay 1
-  where
-    go i =
-        withResource pool $ \conn -> do
-            p <- runPgStore conn $ do
-                when (i `mod` 10 == 0) (snapshot person)
-                rehydrate person
-            print p
+    program <- runPgStore conn $ do
+        snapshot tp1
+        prog  <- rehydrate tp1
+        parts <- case prog of
+                    (Version _ p) -> mapM rehydrate (Set.toList $ tpParticipants p)
+                    _             -> return []
+        return (prog, parts)
 
-            u <- try $ runPgStore conn $ do
-                applyEvents person [ChangedName "Shaun Sharples", ChangedAge 21]
-                applyEvents person [ChangedAge 39]
-            case u of
-                Left (InternalError msg) -> do
-                    putStrLn $ "Update failed: " ++ msg ++ ", retrying..."
-                    go (succ i)
-                Right () -> putStrLn "Update successful"
+    print program

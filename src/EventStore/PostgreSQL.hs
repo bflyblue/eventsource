@@ -6,6 +6,7 @@ module EventStore.PostgreSQL
 , PgStoreError(..)
 , StreamId(..)
 , runPgStore
+, throwError
 , rehydrate
 , applyEvents
 , snapshot
@@ -31,22 +32,33 @@ rehydrate stream = do
     case maggr of
         Just a  -> return a
         Nothing -> do
-            (ver, snap) <- getStreamSnap (streamId stream)
-            (a, es) <- case snap of
-                Just snapver -> do
-                    s <- getSnapshot (streamId stream) snapver
-                    jsonEvents <- getEventsRange (streamId stream) snapver ver
-                    s' <- fromResult (fromJSON s)
-                    return (s', jsonEvents)
+            mdelta <- deltaLookup stream
+            case mdelta of
+                Just (Delta ver snap es') -> do
+                    (a, es) <- getAggrAndEvents ver snap
+                    events <- fromResult (mapM fromJSON $ es ++ es')
+                    let a' = foldE a events
+                    cacheInsert stream a'
+                    return a'
                 Nothing -> do
-                    jsonEvents <- getEvents (streamId stream) ver
-                    return (A.empty, jsonEvents)
-            events <- fromResult (mapM fromJSON es)
-            let a' = foldE a events
-            cacheInsert stream a'
-            deltaInit stream ver
-            return a'
+                    (ver, snap) <- getStreamSnap (streamId stream)
+                    (a, es) <- getAggrAndEvents ver snap
+                    events <- fromResult (mapM fromJSON es)
+                    let a' = foldE a events
+                    cacheInsert stream a'
+                    deltaInit stream ver snap
+                    return a'
   where
+    getAggrAndEvents ver (Just snapver) = do
+        s <- getSnapshot (streamId stream) snapver
+        jsonEvents <- getEventsRange (streamId stream) snapver ver
+        s' <- fromResult (fromJSON s)
+        return (s', jsonEvents)
+
+    getAggrAndEvents ver Nothing = do
+        jsonEvents <- getEvents (streamId stream) ver
+        return (A.empty, jsonEvents)
+
     fromResult (Success r) = return r
     fromResult (Error msg) = throwError msg
 
@@ -54,7 +66,7 @@ snapshot :: (Typeable a, Aggregate a, FromJSON a, FromJSON (EventT a), ToJSON a)
          => StreamId a -> PgStore ()
 snapshot stream = do
     a <- rehydrate stream
-    Just (Delta ver _) <- deltaLookup stream
+    Just (Delta ver _ _) <- deltaLookup stream
     snapshotStream (streamId stream) ver (toJSON a)
 
 applyEvents :: (Typeable a, Aggregate a, ToJSON (EventT a))
@@ -63,8 +75,9 @@ applyEvents stream events = do
     let jsonEvents = toJSON <$> events
     mdelta <- deltaLookup stream
     delta  <- case mdelta of
-                Just (Delta ver es) -> return $ Delta ver (es ++ jsonEvents)
-                Nothing             -> Delta <$> getStream (streamId stream) <*> pure jsonEvents
+                Just (Delta ver snap es) -> return $ Delta ver snap (es ++ jsonEvents)
+                Nothing                  -> do  (ver, snap) <- getStreamSnap (streamId stream)
+                                                return $ Delta ver snap jsonEvents
     deltaInsert stream delta
 
     maggr <- cacheLookup stream
