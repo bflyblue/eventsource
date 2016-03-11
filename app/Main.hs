@@ -9,8 +9,7 @@ import Control.Monad
 import Data.Pool
 import Datastore.Aggregates.Person
 import Database.PostgreSQL.Simple
-import EventStore.PostgreSQL.Store
-
+import EventStore.PostgreSQL
 
 main :: IO ()
 main = do

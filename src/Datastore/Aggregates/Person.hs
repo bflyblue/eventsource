@@ -8,7 +8,7 @@ module Datastore.Aggregates.Person where
 
 import EventStore.Aggregate
 import EventStore.Version
-import EventStore.PostgreSQL.Store
+import EventStore.PostgreSQL
 
 import GHC.Generics
 import Data.Aeson

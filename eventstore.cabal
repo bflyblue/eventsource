@@ -19,7 +19,13 @@ library
                        Datastore.Aggregates.Person
                        EventStore.Aggregate
                        EventStore.Version
-                       EventStore.PostgreSQL.Store
+                       EventStore.PostgreSQL
+                       EventStore.PostgreSQL.Internal.Cache
+                       EventStore.PostgreSQL.Internal.Delta
+                       EventStore.PostgreSQL.Internal.EventStream
+                       EventStore.PostgreSQL.Internal.Snapshot
+                       EventStore.PostgreSQL.Internal.Store
+                       EventStore.PostgreSQL.Internal.Types
   ghc-options:         -Wall
   build-depends:       base >= 4.7 && < 5
                      , aeson
