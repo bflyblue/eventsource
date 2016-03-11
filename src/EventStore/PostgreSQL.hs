@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 
 module EventStore.PostgreSQL
@@ -23,10 +22,10 @@ import           EventStore.PostgreSQL.Internal.Store
 import           EventStore.PostgreSQL.Internal.Types
 
 import           Data.Aeson
-import           Data.Hashable                              (Hashable)
 import           Data.Typeable                              (Typeable)
 
-rehydrate :: (Typeable a, Aggregate a, FromJSON a, FromJSON (EventT a)) => StreamId a -> PgStore a
+rehydrate :: (Typeable a, Aggregate a, FromJSON a, FromJSON (EventT a))
+          => StreamId a -> PgStore a
 rehydrate stream = do
     maggr <- cacheLookup stream
     case maggr of
@@ -51,13 +50,15 @@ rehydrate stream = do
     fromResult (Success r) = return r
     fromResult (Error msg) = throwError msg
 
-snapshot :: (Typeable a, Aggregate a, FromJSON (EventT a), FromJSON a, ToJSON a) => StreamId a -> PgStore ()
+snapshot :: (Typeable a, Aggregate a, FromJSON a, FromJSON (EventT a), ToJSON a)
+         => StreamId a -> PgStore ()
 snapshot stream = do
     a <- rehydrate stream
     Just (Delta ver _) <- deltaLookup stream
     snapshotStream (streamId stream) ver (toJSON a)
 
-applyEvents :: (Typeable a, Eq (StreamId a), Hashable (StreamId a), ToJSON (EventT a), Aggregate a) => StreamId a -> [EventT a] -> PgStore ()
+applyEvents :: (Typeable a, Aggregate a, ToJSON (EventT a))
+            => StreamId a -> [EventT a] -> PgStore ()
 applyEvents stream events = do
     let jsonEvents = toJSON <$> events
     mdelta <- deltaLookup stream
