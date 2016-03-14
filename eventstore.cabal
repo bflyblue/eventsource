@@ -20,11 +20,12 @@ library
                        Datastore.Aggregates.Person
                        Datastore.Aggregates.Participant
                        Datastore.Aggregates.TrainingProgram
-                       Datastore.Command
-                       Datastore.Command.Internal
                        Datastore.Commands.TrainingProgram
-                       Datastore.Query
-                       Datastore.Query.Internal
+                       Datastore.CQRS
+                       Datastore.CQRS.Command
+                       Datastore.CQRS.Command.Internal
+                       Datastore.CQRS.Query
+                       Datastore.CQRS.Query.Internal
                        Datastore.Queries.TrainingProgram
                        EventStore.Aggregate
                        EventStore.Version

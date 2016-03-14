@@ -4,7 +4,7 @@ import           Data.Text
 
 import qualified Datastore.Aggregates.Participant     as A
 import qualified Datastore.Aggregates.TrainingProgram as A
-import           Datastore.Command.Internal
+import           Datastore.CQRS.Command.Internal
 
 data Participant = Participant
     { pName             :: Text

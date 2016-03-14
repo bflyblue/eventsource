@@ -6,7 +6,7 @@ import           Data.Text
 import           EventStore.PostgreSQL
 import qualified Datastore.Aggregates.Participant     as A
 import qualified Datastore.Aggregates.TrainingProgram as A
-import           Datastore.Query.Internal
+import           Datastore.CQRS.Query.Internal
 
 data Participant = Participant
     { pName             :: Text

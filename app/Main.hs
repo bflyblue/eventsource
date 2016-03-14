@@ -4,9 +4,8 @@ module Main where
 
 import           Database.PostgreSQL.Simple
 import qualified Datastore.Aggregates.Person          as A
-import           Datastore.Command                    as C
+import           Datastore.CQRS
 import           Datastore.Commands.TrainingProgram   as C
-import           Datastore.Query                      as Q
 import           Datastore.Queries.TrainingProgram    as Q
 import           EventStore.PostgreSQL
 

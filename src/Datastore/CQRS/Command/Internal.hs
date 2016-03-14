@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Datastore.Command.Internal
+module Datastore.CQRS.Command.Internal
 ( Command(..)
 , command
 , runCommand

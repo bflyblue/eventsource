@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Datastore.Query.Internal
+module Datastore.CQRS.Query.Internal
 ( Query(..)
 , query
 , runQuery
