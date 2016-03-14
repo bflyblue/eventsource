@@ -4,6 +4,7 @@ module Main where
 
 import           Database.PostgreSQL.Simple
 import qualified Datastore.Aggregates.TrainingProgram as A
+import qualified Datastore.Aggregates.Person          as A
 import           Datastore.Commands.TrainingProgram
 import           EventStore.PostgreSQL
 
@@ -33,3 +34,21 @@ main = do
         return (prog, parts)
 
     print program
+
+    p1 <- runPgStore conn $
+        A.createPerson' "Shaun" 39
+
+    person <- runPgStore conn $ do
+        snapshot p1
+        rehydrate' p1
+
+    print person
+
+    p2 <- runPgStore conn $
+        A.createPerson' "Shaun" (-5)
+
+    person2 <- runPgStore conn $ do
+        snapshot p2
+        rehydrate' p2
+
+    print person2

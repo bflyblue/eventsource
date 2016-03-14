@@ -10,9 +10,11 @@ import           EventStore.Aggregate
 import           EventStore.PostgreSQL
 import           EventStore.Version
 
+import           Control.Monad
 import           Data.Aeson
 import           Data.HashMap.Strict   as Map
 import           Data.Text             (Text)
+
 import           GHC.Generics
 
 type AttributeList = [(Text, GenericValue)]
@@ -46,14 +48,16 @@ instance Aggregate (Versioned GenericEntity) where
 newGenericEntity :: PgStore GenericEntityId
 newGenericEntity = StreamId <$> newStream "GenericEntity"
 
-createGenericEntity :: AttributeList -> PgStore GenericEntityId
-createGenericEntity attrs = do
+createGenericEntity :: Schema -> AttributeList -> PgStore GenericEntityId
+createGenericEntity schema attrs = do
+    unless (validateAttrs schema attrs) (throwError "Invalid attributes")
     e <- newGenericEntity
     applyEvents e [CreatedGenericEntity attrs]
     return e
 
-updateAttributes :: GenericEntityId -> AttributeList -> PgStore ()
-updateAttributes e attrs =
+updateAttributes :: Schema -> GenericEntityId -> AttributeList -> PgStore ()
+updateAttributes schema e attrs = do
+    unless (validateAttrs schema attrs) (throwError "Invalid attributes")
     applyEvents e [UpdatedAttributes attrs]
 
 
@@ -63,8 +67,14 @@ type Schema     = HashMap Text AttribSpec
 data AttribSpec = TInt (Integer -> Bool)
                 | TStr (Text    -> Bool)
 
+mkSchema :: [(Text, AttribSpec)] -> Schema
+mkSchema = Map.fromList
+
 validateEntity :: Schema -> GenericEntity -> Bool
-validateEntity schema (GenericEntity attrs) = all validateAttrib (Map.toList attrs)
+validateEntity schema (GenericEntity attrs) = validateAttrs schema (Map.toList attrs)
+
+validateAttrs :: Schema -> AttributeList -> Bool
+validateAttrs schema = all validateAttrib
   where
     validateAttrib (attrname, attrval) =
         case Map.lookup attrname schema of
