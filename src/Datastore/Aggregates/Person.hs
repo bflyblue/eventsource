@@ -3,7 +3,7 @@
 module Datastore.Aggregates.Person where
 
 import           Datastore.Aggregates.GenericEntity
-import           EventStore.PostgreSQL
+import           Eventstore.PostgreSQL
 
 import           Data.Text as Text
 

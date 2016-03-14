@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Datastore.CQRS.Command.Internal
+module Eventstore.PostgreSQL.Internal.Command
 ( Command(..)
 , command
 , runCommand
@@ -8,7 +8,8 @@ module Datastore.CQRS.Command.Internal
 where
 
 import Database.PostgreSQL.Simple (Connection)
-import EventStore.PostgreSQL
+import Eventstore.PostgreSQL.Internal.Store
+import Eventstore.PostgreSQL.Internal.Types
 
 newtype Command a = Command (PgStore a) deriving (Functor, Applicative, Monad)
 

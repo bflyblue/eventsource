@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Datastore.CQRS.Query.Internal
+module Eventstore.PostgreSQL.Internal.Query
 ( Query(..)
 , query
 , runQuery
@@ -8,7 +8,8 @@ module Datastore.CQRS.Query.Internal
 where
 
 import Database.PostgreSQL.Simple (Connection)
-import EventStore.PostgreSQL
+import Eventstore.PostgreSQL.Internal.Store
+import Eventstore.PostgreSQL.Internal.Types
 
 newtype Query a = Query (PgStore a) deriving (Functor, Applicative, Monad)
 

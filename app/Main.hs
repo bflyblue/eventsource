@@ -4,10 +4,10 @@ module Main where
 
 import           Database.PostgreSQL.Simple
 import qualified Datastore.Aggregates.Person          as A
-import           Datastore.CQRS
 import           Datastore.Commands.TrainingProgram   as C
 import           Datastore.Queries.TrainingProgram    as Q
-import           EventStore.PostgreSQL
+import           Eventstore.PostgreSQL
+import           Eventstore.PostgreSQL.CQRS
 
 main :: IO ()
 main = do

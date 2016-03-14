@@ -6,9 +6,9 @@
 
 module Datastore.Aggregates.TrainingProgram where
 
-import           EventStore.Aggregate
-import           EventStore.PostgreSQL
-import           EventStore.Version
+import           Eventstore.Aggregate
+import           Eventstore.PostgreSQL
+import           Eventstore.Version
 
 import           Control.Monad
 import           Data.Aeson

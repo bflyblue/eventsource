@@ -3,10 +3,10 @@ module Datastore.Queries.TrainingProgram where
 import           Data.HashSet                         as Set
 import           Data.Text
 
-import           EventStore.PostgreSQL
 import qualified Datastore.Aggregates.Participant     as A
 import qualified Datastore.Aggregates.TrainingProgram as A
-import           Datastore.CQRS.Query.Internal
+import           Eventstore.PostgreSQL
+import           Eventstore.PostgreSQL.Internal.Query
 
 data Participant = Participant
     { pName             :: Text

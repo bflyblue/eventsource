@@ -21,21 +21,19 @@ library
                        Datastore.Aggregates.Participant
                        Datastore.Aggregates.TrainingProgram
                        Datastore.Commands.TrainingProgram
-                       Datastore.CQRS
-                       Datastore.CQRS.Command
-                       Datastore.CQRS.Command.Internal
-                       Datastore.CQRS.Query
-                       Datastore.CQRS.Query.Internal
                        Datastore.Queries.TrainingProgram
-                       EventStore.Aggregate
-                       EventStore.Version
-                       EventStore.PostgreSQL
-                       EventStore.PostgreSQL.Internal.Cache
-                       EventStore.PostgreSQL.Internal.Delta
-                       EventStore.PostgreSQL.Internal.EventStream
-                       EventStore.PostgreSQL.Internal.Snapshot
-                       EventStore.PostgreSQL.Internal.Store
-                       EventStore.PostgreSQL.Internal.Types
+                       Eventstore.Aggregate
+                       Eventstore.Version
+                       Eventstore.PostgreSQL
+                       Eventstore.PostgreSQL.CQRS
+                       Eventstore.PostgreSQL.Internal.Cache
+                       Eventstore.PostgreSQL.Internal.Command
+                       Eventstore.PostgreSQL.Internal.Delta
+                       Eventstore.PostgreSQL.Internal.EventStream
+                       Eventstore.PostgreSQL.Internal.Query
+                       Eventstore.PostgreSQL.Internal.Snapshot
+                       Eventstore.PostgreSQL.Internal.Store
+                       Eventstore.PostgreSQL.Internal.Types
   ghc-options:         -Wall
   build-depends:       base >= 4.7 && < 5
                      , aeson
