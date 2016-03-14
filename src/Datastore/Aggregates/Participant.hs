@@ -36,8 +36,6 @@ instance Aggregate (Versioned Participant) where
 
 instance FromJSON (EventT (Versioned Participant))
 instance ToJSON (EventT (Versioned Participant))
-instance FromJSON (Versioned Participant)
-instance ToJSON (Versioned Participant)
 
 newParticipant :: PgStore ParticipantId
 newParticipant = StreamId <$> newStream "Participant"

@@ -1,11 +1,13 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 
 module EventStore.Version where
 
-import GHC.Generics
+import           Data.Aeson
+import           GHC.Generics
 
 data Versioned a = Initial | Version Int a | Invalid Int | Deleted Int
-    deriving (Show, Eq, Ord, Generic)
+    deriving (Show, Eq, Ord, Generic, FromJSON, ToJSON)
 
 data Change a = Update a | Delete | Invalidate
     deriving (Show, Eq, Ord)

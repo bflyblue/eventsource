@@ -22,10 +22,7 @@ data TrainingProgram = TrainingProgram
   { tpName              :: Text
   , tpParticipants      :: HashSet ParticipantId
   , tpUniqueNames       :: HashSet Text
-  } deriving (Show, Eq, Generic)
-
-instance FromJSON TrainingProgram
-instance ToJSON TrainingProgram
+  } deriving (Show, Eq, Generic, FromJSON, ToJSON)
 
 type TrainingProgramId = StreamId (Versioned TrainingProgram)
 
@@ -34,7 +31,7 @@ instance Aggregate (Versioned TrainingProgram) where
       = CreatedTrainingProgram Text
       | ChangedTrainingProgramName Text
       | AddedParticipant ParticipantId Text
-        deriving (Show, Eq, Ord, Generic)
+        deriving (Show, Eq, Ord, Generic, FromJSON, ToJSON)
 
     empty = Initial
 
@@ -47,11 +44,6 @@ instance Aggregate (Versioned TrainingProgram) where
     apply (AddedParticipant participant name) =
         vadjust (\tp -> Update $ tp { tpParticipants = Set.insert participant (tpParticipants tp)
                                     , tpUniqueNames  = Set.insert name        (tpUniqueNames tp ) })
-
-instance FromJSON (EventT (Versioned TrainingProgram))
-instance ToJSON (EventT (Versioned TrainingProgram))
-instance FromJSON (Versioned TrainingProgram)
-instance ToJSON (Versioned TrainingProgram)
 
 newTrainingProgram :: PgStore TrainingProgramId
 newTrainingProgram = StreamId <$> newStream "TrainingProgram"

@@ -18,10 +18,7 @@ import           GHC.Generics
 data Person = Person
   { personName :: Text
   , personAge  :: Int
-  } deriving (Show, Eq, Ord, Generic, Hashable)
-
-instance FromJSON Person
-instance ToJSON Person
+  } deriving (Show, Eq, Ord, Generic, Hashable, FromJSON, ToJSON)
 
 type PersonId = StreamId (Versioned Person)
 
@@ -30,17 +27,12 @@ instance Aggregate (Versioned Person) where
       = SetPerson Text Int
       | ChangedName Text
       | ChangedAge Int
-        deriving (Show, Eq, Ord, Generic)
+        deriving (Show, Eq, Ord, Generic, FromJSON, ToJSON)
 
     empty = Initial
     apply (SetPerson   name age) = vset (Person name age)
     apply (ChangedName name    ) = vadjust (\p -> Update $ p { personName = name })
     apply (ChangedAge  age     ) = vadjust (\p -> Update $ p { personAge = age })
-
-instance FromJSON (EventT (Versioned Person))
-instance ToJSON (EventT (Versioned Person))
-instance FromJSON (Versioned Person)
-instance ToJSON (Versioned Person)
 
 newPerson :: PgStore PersonId
 newPerson = StreamId <$> newStream "person"

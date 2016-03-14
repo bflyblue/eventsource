@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:
+                       Datastore.Aggregates.GenericEntity
                        Datastore.Aggregates.Person
                        Datastore.Aggregates.Participant
                        Datastore.Aggregates.TrainingProgram
