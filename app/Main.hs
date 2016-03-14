@@ -3,13 +3,12 @@
 module Main where
 
 import           Database.PostgreSQL.Simple
-import qualified Datastore.Aggregates.TrainingProgram as A
 import qualified Datastore.Aggregates.Person          as A
-import           Datastore.Command
-import           Datastore.Commands.TrainingProgram
+import           Datastore.Command                    as C
+import           Datastore.Commands.TrainingProgram   as C
+import           Datastore.Query                      as Q
+import           Datastore.Queries.TrainingProgram    as Q
 import           EventStore.PostgreSQL
-
-import qualified Data.HashSet                         as Set
 
 main :: IO ()
 main = do
@@ -20,19 +19,18 @@ main = do
 
     conn <- connect conninfo
 
-    let tp = TrainingProgram "Program 1" [
-                  Participant "Participant 1"
-                , Participant "Participant 2"
+    let tp = C.TrainingProgram "Program 1" [
+                  C.Participant "Participant 1"
+                , C.Participant "Participant 2"
                 ]
 
     tp1 <- runCommand conn $
         createTrainingProgram tp
 
-    program <- runPgStore conn $ do
-        snapshot tp1
-        prog  <- rehydrate' tp1
-        parts <- mapM rehydrate' (Set.toList $ A.tpParticipants prog)
-        return (prog, parts)
+    runPgStore conn $ snapshot tp1
+
+    program <- runQuery conn $
+        getTrainingProgram tp1
 
     print program
 

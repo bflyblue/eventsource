@@ -23,6 +23,9 @@ library
                        Datastore.Command
                        Datastore.Command.Internal
                        Datastore.Commands.TrainingProgram
+                       Datastore.Query
+                       Datastore.Query.Internal
+                       Datastore.Queries.TrainingProgram
                        EventStore.Aggregate
                        EventStore.Version
                        EventStore.PostgreSQL
