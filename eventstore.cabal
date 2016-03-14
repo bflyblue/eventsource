@@ -19,6 +19,7 @@ library
                        Datastore.Aggregates.Person
                        Datastore.Aggregates.Participant
                        Datastore.Aggregates.TrainingProgram
+                       Datastore.Commands.TrainingProgram
                        EventStore.Aggregate
                        EventStore.Version
                        EventStore.PostgreSQL
