@@ -5,6 +5,7 @@ module Main where
 import           Database.PostgreSQL.Simple
 import qualified Datastore.Aggregates.TrainingProgram as A
 import qualified Datastore.Aggregates.Person          as A
+import           Datastore.Command
 import           Datastore.Commands.TrainingProgram
 import           EventStore.PostgreSQL
 
@@ -24,7 +25,7 @@ main = do
                 , Participant "Participant 2"
                 ]
 
-    tp1 <- runPgStore conn $
+    tp1 <- runCommand conn $
         createTrainingProgram tp
 
     program <- runPgStore conn $ do

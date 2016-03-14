@@ -20,6 +20,8 @@ library
                        Datastore.Aggregates.Person
                        Datastore.Aggregates.Participant
                        Datastore.Aggregates.TrainingProgram
+                       Datastore.Command
+                       Datastore.Command.Internal
                        Datastore.Commands.TrainingProgram
                        EventStore.Aggregate
                        EventStore.Version
