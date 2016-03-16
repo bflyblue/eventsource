@@ -8,6 +8,12 @@ import           Datastore.Commands.TrainingProgram   as C
 import           Datastore.Queries.TrainingProgram    as Q
 import           Eventstore.PostgreSQL
 import           Eventstore.PostgreSQL.CQRS
+import           Eventstore.PostgreSQL.Internal.Store (runPgStore')
+import           Eventstore.PostgreSQL.Internal.CommandQueue
+
+import           Data.Aeson as Aeson
+import           Control.Concurrent
+import           Control.Monad.IO.Class                  (liftIO)
 
 main :: IO ()
 main = do
@@ -17,36 +23,54 @@ main = do
                                       , connectPassword = "icecream" }
 
     conn <- connect conninfo
+    conn2 <- connect conninfo
 
-    let tp = C.TrainingProgram "Program 1" [
-                  C.Participant "Participant 1"
-                , C.Participant "Participant 2"
-                ]
+    _ <- forkIO $ do
+        threadDelay 5000000
 
-    tp1 <- runCommand conn $
-        createTrainingProgram tp
+        qid <- runPgStore' conn2 $
+            queueCommand (Aeson.String "Test")
 
-    runPgStore conn $ snapshot tp1
+        print qid
 
-    program <- runQuery conn $
-        getTrainingProgram tp1
+    print "waiting"
 
-    print program
+    _ <- runPgStore' conn $
+        withCommand $ \cmd -> do
+            liftIO $ print cmd
+            return $ Right (Aeson.String "Success")
 
-    p1 <- runPgStore conn $
-        A.createPerson' "Shaun" 39
+    print "done"
 
-    person <- runPgStore conn $ do
-        snapshot p1
-        rehydrate' p1
-
-    print person
-
-    p2 <- runPgStore conn $
-        A.createPerson' "Shaun" (-5)
-
-    person2 <- runPgStore conn $ do
-        snapshot p2
-        rehydrate' p2
-
-    print person2
+    -- let tp = C.TrainingProgram "Program 1" [
+    --               C.Participant "Participant 1"
+    --             , C.Participant "Participant 2"
+    --             ]
+    --
+    -- tp1 <- runCommand conn $
+    --     createTrainingProgram tp
+    --
+    -- runPgStore conn $ snapshot tp1
+    --
+    -- program <- runQuery conn $
+    --     getTrainingProgram tp1
+    --
+    -- print program
+    --
+    -- p1 <- runPgStore conn $
+    --     A.createPerson' "Shaun" 39
+    --
+    -- person <- runPgStore conn $ do
+    --     snapshot p1
+    --     rehydrate' p1
+    --
+    -- print person
+    --
+    -- p2 <- runPgStore conn $
+    --     A.createPerson' "Shaun" (-5)
+    --
+    -- person2 <- runPgStore conn $ do
+    --     snapshot p2
+    --     rehydrate' p2
+    --
+    -- print person2

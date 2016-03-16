@@ -28,6 +28,7 @@ library
                        Eventstore.PostgreSQL.CQRS
                        Eventstore.PostgreSQL.Internal.Cache
                        Eventstore.PostgreSQL.Internal.Command
+                       Eventstore.PostgreSQL.Internal.CommandQueue
                        Eventstore.PostgreSQL.Internal.Delta
                        Eventstore.PostgreSQL.Internal.EventStream
                        Eventstore.PostgreSQL.Internal.Query
@@ -72,6 +73,9 @@ executable eventstore-exe
                      , eventstore
                      , text
                      , unordered-containers
+
+                     , aeson
+                     , transformers
   default-language:    Haskell2010
 
 -- test-suite store-test

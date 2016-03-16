@@ -22,3 +22,24 @@ create table if not exists snapshots (
     payload     jsonb not null,
     unique (stream_id, version)
 );
+
+create type command_status as enum (
+    'waiting',
+    'busy',
+    'done',
+    'failed'
+);
+
+create table if not exists command_queue (
+    id          serial4 primary key,
+    "timestamp" timestamptz default now(),
+    started     timestamptz,
+    completed   timestamptz,
+    status      command_status default 'waiting',
+    payload     jsonb not null,
+    result      jsonb
+);
+
+create or replace rule command_queue_insert as
+    on insert to command_queue
+    do notify command_queue_changed;

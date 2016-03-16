@@ -20,6 +20,9 @@ runPgStore conn a =
         persistChanges
         return r
 
+runPgStore' :: Connection -> PgStore a -> IO a
+runPgStore' conn a = fst <$> evalRWST (unPgStore a) conn emptyPgState
+
 persistChanges :: PgStore ()
 persistChanges = do
     s <- PgStore get
