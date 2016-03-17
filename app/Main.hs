@@ -28,7 +28,7 @@ main = do
     _ <- forkIO $ do
         threadDelay 5000000
 
-        qid <- runPgStore' conn2 $
+        qid <- runCommand conn2 $
             queueCommand (Aeson.String "Test")
 
         print qid

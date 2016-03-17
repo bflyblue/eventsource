@@ -11,10 +11,11 @@ import           Database.PostgreSQL.Simple
 import           Database.PostgreSQL.Simple.Notification
 import           Database.PostgreSQL.Simple.SqlQQ
 
+import           Eventstore.PostgreSQL.Internal.Command
 import           Eventstore.PostgreSQL.Internal.Types
 
-queueCommand :: Value -> PgStore Int
-queueCommand cmd = do
+queueCommand :: Value -> Command Int
+queueCommand cmd = command $ do
     conn <- getConn
     qcmds <- liftIO $ query conn [sql|insert into command_queue (payload) values (?) returning id|]
                                  (Only cmd)
