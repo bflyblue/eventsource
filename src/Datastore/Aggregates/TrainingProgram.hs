@@ -54,12 +54,12 @@ initTrainingProgram name = do
     applyEvents tp [CreatedTrainingProgram name]
     return tp
 
-addParticipant :: TrainingProgramId -> Text -> PgStore ParticipantId
-addParticipant tp name = do
+addParticipant :: TrainingProgramId -> Text -> Integer -> PgStore ParticipantId
+addParticipant tp name spend = do
     vtp <- rehydrate tp
     case vtp of
         Version _ program -> when (name `Set.member` tpUniqueNames program) (throwError "Participant with name already exists")
         _                 -> throwError "Training Program in invalid state"
-    p <- initParticipant name
+    p <- initParticipant name spend
     applyEvents tp [AddedParticipant p name]
     return p

@@ -10,6 +10,7 @@ import           Eventstore.PostgreSQL.Internal.Query
 
 data Participant = Participant
     { pName             :: Text
+    , pSpend            :: Integer
     } deriving Show
 
 data TrainingProgram = TrainingProgram
@@ -29,4 +30,4 @@ getTrainingProgram tpid = do
 getParticipant :: A.ParticipantId -> Query Participant
 getParticipant pid = do
     p <- query $ rehydrate' pid
-    return Participant { pName = A.pName p }
+    return Participant { pName = A.pName p, pSpend = A.pSpend p }
