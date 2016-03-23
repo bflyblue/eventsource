@@ -35,10 +35,12 @@ library
                        Eventstore.PostgreSQL.Internal.Snapshot
                        Eventstore.PostgreSQL.Internal.Store
                        Eventstore.PostgreSQL.Internal.Types
+                       Eventstore.PostgreSQL.Internal.Watch
   ghc-options:         -Wall
   build-depends:       base >= 4.7 && < 5
                      , aeson
                      , async
+                     , bytestring
                      , containers
                      , either
                      , haxl
