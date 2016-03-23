@@ -10,6 +10,7 @@ import           Data.Aeson
 import           Data.Functor.Identity          (Identity)
 import           Data.Hashable                  (Hashable)
 import           Data.Map.Strict                as Map
+import           Data.Set                       as Set
 import           Database.PostgreSQL.Simple     (Connection)
 import           GHC.Generics
 import           Haxl.Core.DataCache            as DataCache
@@ -19,8 +20,9 @@ newtype PgStore a = PgStore
     } deriving (Functor, Applicative, Monad, MonadIO)
 
 data PgState = PgState
-    { sCache  :: DataCache Identity
-    , sDeltas :: Map Int Delta
+    { sCache    :: DataCache Identity
+    , sDeltas   :: Map Int Delta
+    , sWatches  :: Set Int
     }
 
 data PgStoreError = InternalError String deriving (Show, Eq, Ord)
@@ -37,7 +39,7 @@ type Version = Int
 
 -- TODO: find a better home for these
 emptyPgState :: PgState
-emptyPgState = PgState DataCache.empty Map.empty
+emptyPgState = PgState DataCache.empty Map.empty Set.empty
 
 throwError :: String -> PgStore a
 throwError = PgStore . liftIO . throw . InternalError

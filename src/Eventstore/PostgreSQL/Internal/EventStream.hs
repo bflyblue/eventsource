@@ -8,6 +8,7 @@ import           Data.Aeson
 import           Database.PostgreSQL.Simple
 
 import           Eventstore.PostgreSQL.Internal.Types
+import           Eventstore.PostgreSQL.Internal.Watch
 
 newStream :: String -> PgStore Int
 newStream stype = do
@@ -33,6 +34,7 @@ updateStream stream old new = do
     nrows <- liftIO $ execute conn "update event_streams set version = ? where id = ? and version = ?"
                                    (new, stream, old)
     when (nrows == 0) $ throwError "Update Conflict"
+    notify stream
 
 getEvents :: Int -> Version -> PgStore [Value]
 getEvents stream version = do
